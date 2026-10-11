@@ -2,7 +2,7 @@
 
 Legend: ✅ verified (test or command actually run) · 🟡 implemented, not yet verified · ⬜ not started · ⛔ blocked
 
-Last updated: 2026-10-11 (Phase 3 pipeline; PaySim results pending)
+Last updated: 2026-10-11 (end of Phase 3, PaySim results measured)
 
 ## Product
 | Req | Status | Verified by |
@@ -11,7 +11,7 @@ Last updated: 2026-10-11 (Phase 3 pipeline; PaySim results pending)
 | Accept transactions via REST API | ✅ | `test_transactions.py` (idempotent by external_id, validation, 1000-row cap) |
 | Store transactions in PostgreSQL | ✅ | `test_valid_csv_is_imported`, `test_schema.py` constraints |
 | Configurable monitoring rules | ⬜ | AT-10 |
-| Supervised ML model on labelled synthetic data | 🟡 | Pipeline built and tested (`ml/tests`); PaySim training run pending the dataset |
+| Supervised ML model on labelled synthetic data | ✅ | Trained on full PaySim; docs/MODEL_REPORT.md |
 | Persist risk assessments (version, time, score, reasons) | ⬜ | AT-09 |
 | Alerts: filter, assign, change status | ⬜ | AT-11 |
 | Cases: link alerts, notes, decisions | ⬜ | AT-12 |
@@ -35,10 +35,10 @@ Last updated: 2026-10-11 (Phase 3 pipeline; PaySim results pending)
 | Req | Status | Verified by |
 |---|---|---|
 | PaySim instructions (no auto-download) | ✅ | README 'Getting PaySim'; nothing downloads data |
-| Data inspection: imbalance, missing values, limitations, leakage | 🟡 | `inspect_data.py` + `test_inspection_reports_imbalance_split_and_leakage`; PaySim report pending dataset |
-| Baseline + improved model | 🟡 | Logistic regression + HistGradientBoosting, both evaluated (`test_training_writes_complete_versioned_artifact`); PaySim numbers pending |
+| Data inspection: imbalance, missing values, limitations, leakage | ✅ | docs/DATA_INSPECTION.md (PaySim run) |
+| Baseline + improved model | ✅ | Logistic regression vs gradient boosting on PaySim, three feature sets (docs/MODEL_REPORT.md) |
 | Chronological evaluation, train-only preprocessing | ✅ | `test_split_is_chronological...`, `test_models_are_fitted_on_training_rows_only`, `test_scaler_statistics_come_from_training_rows`, `test_history_counts_only_see_strictly_earlier_steps` |
-| P/R/F1, PR-AUC, confusion matrix, FP workload, thresholds | 🟡 | Implemented and unit-tested (`test_metrics_at_threshold_known_values`); measured PaySim report pending |
+| P/R/F1, PR-AUC, confusion matrix, FP workload, thresholds | ✅ | AT-15: docs/MODEL_REPORT.md and docs/model-reports/ |
 | Model version and methodology recorded | ✅ | `metadata.json` (version, hashes, split, methodology, library versions) |
 
 ## Frontend
@@ -68,4 +68,5 @@ Last updated: 2026-10-11 (Phase 3 pipeline; PaySim results pending)
 | Planning | 2026-10-11 | docs/PLAN.md, this checklist |
 | 1 Foundation | 2026-10-11 | 36 tests passed on PostgreSQL 16 (local and Docker Compose); ruff check + format clean |
 | 2 Ingestion | 2026-10-11 | 83 tests passed; ruff clean (backend + scripts); 100k-row import in 20 s |
-| 3 ML pipeline | 2026-10-11 | 20 ML tests passed; ruff clean; end-to-end run on synthetic data only. ⛔ PaySim results blocked on dataset |
+| 3 ML pipeline | 2026-10-11 | 21 ML tests passed; ruff clean; PaySim inspected and trained (strict + 2 ablations) |
+| 4 Scoring + alerts | — | In progress on branch `wip/phase-4` (code written, tests not yet); paused at Santa's request |

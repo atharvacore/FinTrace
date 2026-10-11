@@ -21,6 +21,7 @@ pip install -e "./ml[dev]"
 python -m fintrace_ml.inspect_data data/raw/paysim.csv --data-kind paysim --out ml/reports
 python -m fintrace_ml.train data/raw/paysim.csv --data-kind paysim --promote
 python -m fintrace_ml.train data/raw/paysim.csv --data-kind paysim --feature-set with_post_balances   # ablation
+python -m fintrace_ml.train data/raw/paysim.csv --data-kind paysim --feature-set no_origin_balance    # diagnostic
 cd ml && pytest
 ```
 

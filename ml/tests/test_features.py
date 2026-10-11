@@ -67,6 +67,13 @@ def test_feature_values_for_a_known_row():
     assert X.notna().all()
 
 
+def test_no_origin_balance_set_drops_every_origin_balance_feature():
+    names = feature_names("no_origin_balance")
+    assert not any("origin_balance" in n for n in names)
+    df = add_history_counts(frame([(3, "TRANSFER", 100.0, "C1", 100, 0, "C2", 0, 0, 1)]))
+    assert list(build_features(df, "no_origin_balance").columns) == names
+
+
 def test_unknown_feature_set_is_rejected():
     with pytest.raises(ValueError, match="Unknown feature set"):
         feature_names("everything")

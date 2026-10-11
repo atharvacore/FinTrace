@@ -1,6 +1,6 @@
 # Phase 3 Report: ML Pipeline
 
-Date: 2026-10-11 · Status: **pipeline complete and tested; PaySim results blocked on the dataset**
+Date: 2026-10-11 · Status: **complete, with measured PaySim results** (update at the end of this file)
 
 ## Result
 
@@ -65,3 +65,21 @@ Modified: `.github/workflows/ci.yml` (ml job), `.gitignore` (`ml/reports/`), `RE
 3. **Why report alerts per 1,000?** An operations team has fixed review capacity. The alert-budget table answers "if we can review 1% of transactions, how much fraud do we catch and how many false alarms do analysts see?"
 4. **Where leakage hides in PaySim.** `isFlaggedFraud` (a rule's output), account IDs (memorisation), post-transaction balances (simulator artefact), random splits (future information) and same-hour history counts. Each one has a guard and a test.
 5. **Why two models?** The baseline sets a bar and is easy to explain; the boosted model must beat it on validation to be chosen. Both are reported on test so the comparison is visible.
+
+---
+
+## Update: PaySim run (same day)
+
+Santa supplied the PaySim zip. It held one CSV (6,362,620 rows, expected header, sha256
+`16910f90…4eea6b`), extracted to the git-ignored `data/raw/paysim.csv`.
+
+- **Inspection:** [DATA_INSPECTION.md](../DATA_INSPECTION.md). 0.129% fraud, no missing values,
+  16 zero-amount rows, fraud only in TRANSFER/CASH_OUT, and a big prevalence shift across the
+  chronological split (train 0.082%, test 0.436%).
+- **Results:** [MODEL_REPORT.md](../MODEL_REPORT.md). The strict gradient-boosting model reaches
+  average precision 0.9999 on the test period. I checked why before reporting it: a transfer or
+  cash-out of *exactly* the full balance is fraud in 8,018 of 8,018 cases, a simulator signature.
+  A diagnostic run without origin-balance features gets 0.629, against a baseline of 0.362.
+- **Code change:** added the `no_origin_balance` diagnostic feature set and its test (21 ML tests).
+- **Commands:** `inspect_data` (1 min 16 s), strict training (5 min 43 s), two ablations (about
+  18 min each, run in parallel).

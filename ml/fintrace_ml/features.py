@@ -8,6 +8,9 @@ Leakage rules this module follows:
   type, amount, pre-transaction balances, time of day, and counts of strictly earlier activity.
 * Post-transaction balances (`newbalanceOrig`, `newbalanceDest`) are used only by the
   `with_post_balances` ablation, which exists to show how much they inflate results.
+* `no_origin_balance` is a diagnostic ablation: in PaySim, a TRANSFER/CASH_OUT for exactly the
+  full origin balance is always fraud (a simulator signature), so this set removes every
+  origin-balance feature to measure how much the model depends on that quirk.
 * History counts look only at strictly earlier steps (hours). Transactions in the same hour are
   not visible to each other, so row order inside an hour cannot leak information.
 """
@@ -17,7 +20,7 @@ import pandas as pd
 
 from fintrace_ml.data import TRANSACTION_TYPES
 
-FEATURE_SETS = ("strict", "with_post_balances")
+FEATURE_SETS = ("strict", "with_post_balances", "no_origin_balance")
 NIGHT_HOURS = range(0, 6)
 LARGE_AMOUNT = 200_000.0  # same scale as PaySim's documented 200,000 transfer rule
 
@@ -37,6 +40,12 @@ STRICT_FEATURES = [
     "log_origin_prior_tx",
     "log_dest_prior_in",
 ]
+ORIGIN_BALANCE_FEATURES = [
+    "log_origin_balance_before",
+    "origin_balance_zero",
+    "log_amount_to_origin_balance",
+    "drains_origin_balance",
+]
 POST_BALANCE_FEATURES = [
     "log_origin_balance_after",
     "log_dest_balance_after",
@@ -50,6 +59,8 @@ def feature_names(feature_set: str) -> list[str]:
         return list(STRICT_FEATURES)
     if feature_set == "with_post_balances":
         return STRICT_FEATURES + POST_BALANCE_FEATURES
+    if feature_set == "no_origin_balance":
+        return [f for f in STRICT_FEATURES if f not in ORIGIN_BALANCE_FEATURES]
     raise ValueError(f"Unknown feature set {feature_set!r}; choose from {FEATURE_SETS}")
 
 

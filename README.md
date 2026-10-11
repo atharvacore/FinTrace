@@ -13,7 +13,7 @@ audit trail.
 
 | | |
 |---|---|
-| **Status** | Phases 1–2 complete; Phase 3 pipeline built and tested, real PaySim results pending the dataset. See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
+| **Status** | Phases 1–3 complete, including measured PaySim results ([docs/MODEL_REPORT.md](docs/MODEL_REPORT.md)). Phase 4 next. See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
 | **Plan** | [docs/PLAN.md](docs/PLAN.md): architecture, schema, API, milestones, risks |
 | **Decisions** | [docs/DECISIONS.md](docs/DECISIONS.md) |
 | **Stack** | Python 3.12 · FastAPI · SQLAlchemy 2 · Alembic · PostgreSQL 16 · scikit-learn · React + TypeScript + Vite |
@@ -37,11 +37,12 @@ audit trail.
 - A reproducible ML pipeline: data inspection report, leakage-safe features, chronological split,
   logistic-regression baseline and gradient-boosting model, thresholds chosen on validation,
   test metrics focused on analyst workload, and a versioned model artifact.
-- 103 automated tests (83 backend on real PostgreSQL, 20 ML), plus ruff linting, all run in
+- Measured results on the full PaySim dataset, with an honest explanation of why they are so high
+  (a simulator signature) and a diagnostic run without it: [docs/MODEL_REPORT.md](docs/MODEL_REPORT.md).
+- 104 automated tests (83 backend on real PostgreSQL, 21 ML), plus ruff linting, all run in
   GitHub Actions.
 
-No model results are published yet: they will come from a PaySim run, never from the synthetic
-sample. Scoring, alerts, cases and the React dashboard arrive in Phases 4 and 5.
+Scoring, alerts, cases and the React dashboard arrive in Phases 4 and 5.
 
 ## Quick start
 

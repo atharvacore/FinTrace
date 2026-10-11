@@ -89,3 +89,10 @@ Each alert will carry readable indicator codes (for example `DRAINS_ORIGIN_BALAN
 `NEW_DESTINATION`) computed by transparent rules on the same inputs. They explain why a transaction
 looks unusual; they do not claim to be what the gradient-boosting model weighted most. SHAP was not
 added (see ADR-008).
+
+## ADR-017 Keep the strict model, and publish the diagnostic next to it
+On PaySim, a TRANSFER or CASH_OUT for exactly the full origin balance is always fraud (8,018 of
+8,018 cases). The strict model learns this and scores almost perfectly. The signature uses only
+pre-transaction information, so excluding it would be a judgement about the simulator, not about
+leakage. The deployed model therefore keeps it, and the report shows the `no_origin_balance`
+diagnostic (average precision 0.629) next to it so nobody mistakes 0.9999 for real-world skill.
