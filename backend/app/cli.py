@@ -1,6 +1,7 @@
 """Command-line helpers.
 
     python -m app.cli create-user --email admin@example.com --name "Admin" --role admin
+    python -m app.cli import-csv ../data/sample/synthetic_transactions.csv [--limit 100000]
 
 The password is read from the FINTRACE_NEW_USER_PASSWORD environment variable if set,
 otherwise prompted for (never passed as a command-line argument, so it stays out of shell history).
@@ -10,6 +11,7 @@ import argparse
 import getpass
 import os
 import sys
+from pathlib import Path
 
 from pydantic import ValidationError
 from sqlalchemy import func, select
@@ -20,6 +22,7 @@ from app.models import User
 from app.models.enums import Role
 from app.schemas.user import UserCreate
 from app.services.audit import record_audit
+from app.services.ingestion import import_csv
 
 
 def create_user(email: str, name: str, role: Role, password: str) -> int:
@@ -50,6 +53,28 @@ def create_user(email: str, name: str, role: Role, password: str) -> int:
         return user.id
 
 
+def import_file(path: Path, limit: int | None = None) -> None:
+    """Import a CSV of any size (the API upload is capped; this streams from disk)."""
+    with get_session_factory()() as db, path.open("rb") as fh:
+        batch = import_csv(db, fh, path.name, uploaded_by=None, limit=limit)
+        record_audit(
+            db,
+            actor=None,
+            action="import.completed",
+            entity_type="import_batch",
+            entity_id=batch.id,
+            after={"filename": batch.filename, "rows_inserted": batch.rows_inserted, "via": "cli"},
+        )
+        db.commit()
+        print(
+            f"Import {batch.id} ({batch.status.value}): {batch.rows_total} rows read, "
+            f"{batch.rows_inserted} inserted, {batch.rows_duplicate} duplicates, "
+            f"{batch.rows_rejected} rejected"
+        )
+        for err in batch.errors[:10]:
+            print(f"  line {err['row']}: {'; '.join(err['errors'])}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -57,12 +82,19 @@ def main(argv: list[str] | None = None) -> None:
     cu.add_argument("--email", required=True)
     cu.add_argument("--name", required=True)
     cu.add_argument("--role", required=True, choices=[r.value for r in Role])
+    ic = sub.add_parser("import-csv", help="Import a PaySim-format CSV file")
+    ic.add_argument("path", type=Path)
+    ic.add_argument("--limit", type=int, default=None, help="Stop after this many rows")
     args = parser.parse_args(argv)
 
     if args.command == "create-user":
         password = os.environ.get("FINTRACE_NEW_USER_PASSWORD") or getpass.getpass("Password: ")
         user_id = create_user(args.email, args.name, Role(args.role), password)
         print(f"Created user {args.email} (id={user_id}, role={args.role})")
+    elif args.command == "import-csv":
+        if not args.path.is_file():
+            raise SystemExit(f"File not found: {args.path}")
+        import_file(args.path, args.limit)
 
 
 if __name__ == "__main__":

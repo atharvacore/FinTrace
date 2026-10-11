@@ -15,3 +15,9 @@ def test_cors_origins_accept_comma_separated_string():
         jwt_secret="x" * 40, cors_origins="http://a.test, http://b.test", _env_file=None
     )
     assert settings.cors_origins == ["http://a.test", "http://b.test"]
+
+
+def test_cors_origins_from_environment_variable(monkeypatch):
+    monkeypatch.setenv("FINTRACE_CORS_ORIGINS", "http://a.test,http://b.test")
+    settings = Settings(jwt_secret="x" * 40, _env_file=None)
+    assert settings.cors_origins == ["http://a.test", "http://b.test"]

@@ -13,12 +13,12 @@ audit trail.
 
 | | |
 |---|---|
-| **Status** | Phase 1 of 6 complete (foundation). See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
+| **Status** | Phase 2 of 6 complete (foundation, ingestion). See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
 | **Plan** | [docs/PLAN.md](docs/PLAN.md): architecture, schema, API, milestones, risks |
 | **Decisions** | [docs/DECISIONS.md](docs/DECISIONS.md) |
 | **Stack** | Python 3.12 · FastAPI · SQLAlchemy 2 · Alembic · PostgreSQL 16 · scikit-learn · React + TypeScript + Vite |
 
-## What works today (Phase 1)
+## What works today (Phases 1 and 2)
 
 - FastAPI backend with versioned routes under `/api/v1` and interactive docs at `/docs`.
 - Full database schema (users, imports, transactions, rules, model versions, risk assessments,
@@ -29,10 +29,14 @@ audit trail.
 - Audit events for user creation, role changes and password resets.
 - Consistent JSON errors with a request ID, and health and readiness endpoints that report the
   database, migration and model status truthfully.
-- 36 automated tests against a real PostgreSQL database, plus ruff linting, both run in GitHub Actions.
+- CSV import in the PaySim format: every row validated, bad rows reported with their line number,
+  duplicates skipped (re-importing a file inserts nothing), import history kept.
+- JSON ingestion API, idempotent by `external_id`, and transaction search with filters, sorting and
+  pagination.
+- A clearly labelled **synthetic** sample file (`data/sample/`) and the script that generates it.
+- 83 automated tests against a real PostgreSQL database, plus ruff linting, both run in GitHub Actions.
 
-Transaction import, the ML pipeline, scoring, alerts, cases and the React dashboard arrive in
-Phases 2 to 5.
+The ML pipeline, scoring, alerts, cases and the React dashboard arrive in Phases 3 to 5.
 
 ## Quick start
 
@@ -125,7 +129,26 @@ Open http://localhost:8000/docs, click **Authorize**, and sign in with the admin
 password. `GET /api/v1/health/ready` shows whether the database, migrations and model artifact
 are in place.
 
-### 6. Run the tests and linters
+### 6. Import the synthetic sample
+
+From the `backend` folder:
+
+```bash
+python -m app.cli import-csv ../data/sample/synthetic_transactions.csv
+```
+
+Run it a second time and it reports 5,000 duplicates and inserts nothing. You can also upload a CSV
+through `POST /api/v1/imports` in the Swagger UI (senior analyst or admin, 50 MB limit). For the
+full PaySim file, the command line streams from disk at roughly 5,000 rows per second on a
+4-core machine, so use `--limit 200000` for a quicker demo database.
+
+To regenerate the sample (or make a bigger one for experiments):
+
+```bash
+python ../scripts/generate_sample_data.py --rows 5000 --seed 42 --out ../data/sample/synthetic_transactions.csv
+```
+
+### 7. Run the tests and linters
 
 The tests need the `fintrace_test` database. They **drop and recreate** its schema, so never
 point them at a database you care about.
@@ -152,15 +175,16 @@ pytest && ruff check . && ruff format --check .
 
 ```
 backend/            FastAPI app, SQLAlchemy models, Alembic migrations, tests
-  app/api/v1/       Route handlers (health, auth, users; more per phase)
+  app/api/v1/       Route handlers (health, auth, users, transactions, imports)
   app/core/         Settings, security, errors, middleware
   app/models/       Database tables
   app/schemas/      Request and response models (Pydantic)
   app/services/     Business logic (audit trail; more per phase)
   alembic/          Database migrations
   tests/            pytest suite (runs against real PostgreSQL)
-docs/               Plan, requirements checklist, decisions
-scripts/            Helper scripts (database init)
+data/sample/        Small SYNTHETIC sample (not PaySim); data/raw/ is git-ignored
+docs/               Plan, requirements checklist, decisions, phase reports
+scripts/            Sample-data generator, database init
 .github/workflows/  CI
 ```
 

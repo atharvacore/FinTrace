@@ -5,10 +5,10 @@ Every setting uses the FINTRACE_ prefix, e.g. FINTRACE_DATABASE_URL.
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Repository root: backend/app/core/config.py -> parents[3]
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -30,8 +30,10 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = Field(default=60, ge=5, le=24 * 60)
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
     model_dir: Path = REPO_ROOT / "ml" / "artifacts" / "current"
+    # Upload cap for CSV imports through the API. Larger files: use `python -m app.cli import-csv`.
+    max_upload_mb: int = Field(default=50, ge=1, le=1024)
 
     @field_validator("cors_origins", mode="before")
     @classmethod
