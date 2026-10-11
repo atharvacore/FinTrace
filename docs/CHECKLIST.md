@@ -56,7 +56,7 @@ Last updated: 2026-10-11 (end of Phase 1)
 | Req | Status | Verified by |
 |---|---|---|
 | Plan: architecture, schema, API, milestones, deps, risks | ✅ | docs/PLAN.md |
-| GitHub Actions CI | 🟡 | `.github/workflows/ci.yml` (backend); first run after push |
+| GitHub Actions CI | ✅ | `.github/workflows/ci.yml` backend job green on run 38119907866 |
 | README, architecture diagram, model report, demo script | ⬜ | |
 | Known limitations, truthful resume bullets | ⬜ | |
 | No secrets committed (.env ignored, .env.example only) | ✅ | `.gitignore`; app refuses placeholder secret (`test_config.py`) |
