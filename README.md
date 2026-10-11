@@ -13,12 +13,12 @@ audit trail.
 
 | | |
 |---|---|
-| **Status** | Phase 2 of 6 complete (foundation, ingestion). See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
+| **Status** | Phases 1–2 complete; Phase 3 pipeline built and tested, real PaySim results pending the dataset. See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
 | **Plan** | [docs/PLAN.md](docs/PLAN.md): architecture, schema, API, milestones, risks |
 | **Decisions** | [docs/DECISIONS.md](docs/DECISIONS.md) |
 | **Stack** | Python 3.12 · FastAPI · SQLAlchemy 2 · Alembic · PostgreSQL 16 · scikit-learn · React + TypeScript + Vite |
 
-## What works today (Phases 1 and 2)
+## What works today (Phases 1 to 3)
 
 - FastAPI backend with versioned routes under `/api/v1` and interactive docs at `/docs`.
 - Full database schema (users, imports, transactions, rules, model versions, risk assessments,
@@ -34,9 +34,14 @@ audit trail.
 - JSON ingestion API, idempotent by `external_id`, and transaction search with filters, sorting and
   pagination.
 - A clearly labelled **synthetic** sample file (`data/sample/`) and the script that generates it.
-- 83 automated tests against a real PostgreSQL database, plus ruff linting, both run in GitHub Actions.
+- A reproducible ML pipeline: data inspection report, leakage-safe features, chronological split,
+  logistic-regression baseline and gradient-boosting model, thresholds chosen on validation,
+  test metrics focused on analyst workload, and a versioned model artifact.
+- 103 automated tests (83 backend on real PostgreSQL, 20 ML), plus ruff linting, all run in
+  GitHub Actions.
 
-The ML pipeline, scoring, alerts, cases and the React dashboard arrive in Phases 3 to 5.
+No model results are published yet: they will come from a PaySim run, never from the synthetic
+sample. Scoring, alerts, cases and the React dashboard arrive in Phases 4 and 5.
 
 ## Quick start
 
@@ -182,20 +187,47 @@ backend/            FastAPI app, SQLAlchemy models, Alembic migrations, tests
   app/services/     Business logic (audit trail; more per phase)
   alembic/          Database migrations
   tests/            pytest suite (runs against real PostgreSQL)
+ml/                 Offline training pipeline + shared feature code (see ml/README.md)
 data/sample/        Small SYNTHETIC sample (not PaySim); data/raw/ is git-ignored
 docs/               Plan, requirements checklist, decisions, phase reports
 scripts/            Sample-data generator, database init
 .github/workflows/  CI
 ```
 
-`ml/` (training pipeline) and `frontend/` (React dashboard) are added in Phases 3 and 5.
+`frontend/` (React dashboard) is added in Phase 5.
 
 ## Data
 
-FinTrace's model is trained on **PaySim**, a public **synthetic** mobile-money dataset. It is
-never downloaded automatically. Instructions for obtaining it are in
-[docs/PLAN.md §5](docs/PLAN.md#5-dependency-and-environment-plan) and will move here in Phase 3.
-PaySim fraud labels are simulated fraud, not confirmed money laundering.
+### Getting PaySim
+
+FinTrace's model is trained on **PaySim**, a public **synthetic** mobile-money dataset
+(E. A. Lopez-Rojas, A. Elmir and S. Axelsson, "PaySim: A financial mobile money simulator for
+fraud detection", EMSS 2016). FinTrace never downloads it for you.
+
+1. Sign in at kaggle.com and open the dataset **"Synthetic Financial Datasets For Fraud
+   Detection"** (owner: `ealaxi`; search for "PaySim").
+2. Read and accept the licence shown on that page (check it yourself; it has been listed as
+   CC BY-SA 4.0).
+3. Download and unzip. Move the single CSV (about 470 MB, named like
+   `PS_20174392719_1491204439457_log.csv`) to `data/raw/paysim.csv`. `data/raw/` is git-ignored.
+4. Check it: the header must be
+   `step,type,amount,nameOrig,oldbalanceOrg,newbalanceOrig,nameDest,oldbalanceDest,newbalanceDest,isFraud,isFlaggedFraud`
+   and the file should have about 6.36 million rows.
+
+PaySim fraud labels are **simulated fraud**, not confirmed money laundering.
+
+### Train the model
+
+```bash
+pip install -e "./ml[dev]"
+python -m fintrace_ml.inspect_data data/raw/paysim.csv --data-kind paysim --out ml/reports
+python -m fintrace_ml.train data/raw/paysim.csv --data-kind paysim --promote
+```
+
+This writes a versioned artifact under `ml/artifacts/` and copies it to `ml/artifacts/current`,
+where the API loads it. See [ml/README.md](ml/README.md) for the method and its leakage
+safeguards. Without PaySim you can smoke-test the pipeline on the bundled sample with
+`--data-kind synthetic`; every report it produces is stamped "THESE ARE NOT RESULTS".
 
 ## Security notes
 

@@ -17,6 +17,7 @@ htmlcov/
 data/raw/
 data/processed/
 ml/artifacts/
+ml/reports/
 *.joblib
 
 # Node

@@ -2,7 +2,7 @@
 
 Legend: ✅ verified (test or command actually run) · 🟡 implemented, not yet verified · ⬜ not started · ⛔ blocked
 
-Last updated: 2026-10-11 (end of Phase 2)
+Last updated: 2026-10-11 (Phase 3 pipeline; PaySim results pending)
 
 ## Product
 | Req | Status | Verified by |
@@ -11,13 +11,13 @@ Last updated: 2026-10-11 (end of Phase 2)
 | Accept transactions via REST API | ✅ | `test_transactions.py` (idempotent by external_id, validation, 1000-row cap) |
 | Store transactions in PostgreSQL | ✅ | `test_valid_csv_is_imported`, `test_schema.py` constraints |
 | Configurable monitoring rules | ⬜ | AT-10 |
-| Supervised ML model on labelled synthetic data | ⬜ | AT-14, AT-15 |
+| Supervised ML model on labelled synthetic data | 🟡 | Pipeline built and tested (`ml/tests`); PaySim training run pending the dataset |
 | Persist risk assessments (version, time, score, reasons) | ⬜ | AT-09 |
 | Alerts: filter, assign, change status | ⬜ | AT-11 |
 | Cases: link alerts, notes, decisions | ⬜ | AT-12 |
 | Audit events for sensitive changes | 🟡 | Users, imports, API ingestion audited (`test_users_rbac.py`, `test_imports.py`, `test_transactions.py`); alerts/cases/rules in Phases 4–5 |
 | React dashboard (transactions, alerts, cases, metrics) | ⬜ | AT-16 |
-| Reproducible training and evaluation pipeline | ⬜ | AT-14 |
+| Reproducible training and evaluation pipeline | ✅ | AT-14 `test_same_seed_gives_identical_metrics`; CI smoke run on synthetic sample |
 | Docker Compose local run | 🟡 | `db` service verified: full test suite passed against it; api/web in Phase 6 |
 | Tests, API docs, screenshots, README | ⬜ | AT-17 |
 
@@ -34,12 +34,12 @@ Last updated: 2026-10-11 (end of Phase 2)
 ## ML
 | Req | Status | Verified by |
 |---|---|---|
-| PaySim instructions (no auto-download) | 🟡 | docs/PLAN.md §5; synthetic stand-in in data/sample (reproducibility test) |
-| Data inspection: imbalance, missing values, limitations, leakage | ⬜ | |
-| Baseline + improved model | ⬜ | |
-| Chronological evaluation, train-only preprocessing | ⬜ | AT-14 |
-| P/R/F1, PR-AUC, confusion matrix, FP workload, thresholds | ⬜ | AT-15 |
-| Model version and methodology recorded | ⬜ | |
+| PaySim instructions (no auto-download) | ✅ | README 'Getting PaySim'; nothing downloads data |
+| Data inspection: imbalance, missing values, limitations, leakage | 🟡 | `inspect_data.py` + `test_inspection_reports_imbalance_split_and_leakage`; PaySim report pending dataset |
+| Baseline + improved model | 🟡 | Logistic regression + HistGradientBoosting, both evaluated (`test_training_writes_complete_versioned_artifact`); PaySim numbers pending |
+| Chronological evaluation, train-only preprocessing | ✅ | `test_split_is_chronological...`, `test_models_are_fitted_on_training_rows_only`, `test_scaler_statistics_come_from_training_rows`, `test_history_counts_only_see_strictly_earlier_steps` |
+| P/R/F1, PR-AUC, confusion matrix, FP workload, thresholds | 🟡 | Implemented and unit-tested (`test_metrics_at_threshold_known_values`); measured PaySim report pending |
+| Model version and methodology recorded | ✅ | `metadata.json` (version, hashes, split, methodology, library versions) |
 
 ## Frontend
 | Req | Status | Verified by |
@@ -68,3 +68,4 @@ Last updated: 2026-10-11 (end of Phase 2)
 | Planning | 2026-10-11 | docs/PLAN.md, this checklist |
 | 1 Foundation | 2026-10-11 | 36 tests passed on PostgreSQL 16 (local and Docker Compose); ruff check + format clean |
 | 2 Ingestion | 2026-10-11 | 83 tests passed; ruff clean (backend + scripts); 100k-row import in 20 s |
+| 3 ML pipeline | 2026-10-11 | 20 ML tests passed; ruff clean; end-to-end run on synthetic data only. ⛔ PaySim results blocked on dataset |

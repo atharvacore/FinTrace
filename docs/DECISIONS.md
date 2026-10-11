@@ -64,3 +64,28 @@ API uses; good rows are inserted, bad rows are reported with their line number (
 all counted). Only an unusable file (wrong header, not UTF-8, not CSV) is rejected as a whole.
 Balance arithmetic is not validated: PaySim itself contains inconsistent balances, which are a known
 dataset quirk documented in Phase 3.
+
+## ADR-013 Training is offline; the API shares only the feature code
+`ml/` is its own package. The API will import `fintrace_ml.features` so online features are computed
+by the same code as training features, but it never imports the training code. Artifacts are
+plain files (`model.joblib` + `metadata.json`) copied into `FINTRACE_MODEL_DIR` by `--promote`.
+
+## ADR-014 Evaluation protocol
+Chronological split by hour (70/15/15 by rows, cut between whole hours). Both models are fitted on
+train; each model's operating threshold (best F1) and alert-budget thresholds are chosen on
+validation; the deployed model is the one with the higher validation average precision; test is
+scored once with everything fixed. Average precision is reported next to the prevalence, because a
+random model's average precision equals the prevalence. Workload is reported as alerts and false
+positives per 1,000 transactions, which is what an operations team plans around.
+
+## ADR-015 Strict features by default; post-transaction balances only as an ablation
+PaySim's post-transaction balances make fraud almost trivially separable (destination balances are
+often not updated for fraudulent transfers). A bank scoring a payment before it settles would not
+have that information, so the default model does not use it. The `with_post_balances` run exists to
+measure, and show, how much those columns inflate the numbers.
+
+## ADR-016 Indicator codes are explanations, not model attributions
+Each alert will carry readable indicator codes (for example `DRAINS_ORIGIN_BALANCE`,
+`NEW_DESTINATION`) computed by transparent rules on the same inputs. They explain why a transaction
+looks unusual; they do not claim to be what the gradient-boosting model weighted most. SHAP was not
+added (see ADR-008).

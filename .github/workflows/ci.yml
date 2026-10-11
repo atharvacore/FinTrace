@@ -43,3 +43,25 @@ jobs:
         run: ruff format --check . && ruff format --check --config pyproject.toml ../scripts
       - name: Tests
         run: pytest --cov=app --cov-report=term-missing
+
+  ml:
+    name: ML pipeline (lint + tests on the synthetic sample)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ml/pyproject.toml
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check . && ruff format --check .
+      - name: Tests
+        run: pytest
+      - name: End-to-end smoke run (synthetic data, not results)
+        run: python -m fintrace_ml.train ../data/sample/synthetic_transactions.csv --data-kind synthetic --out /tmp/artifacts
