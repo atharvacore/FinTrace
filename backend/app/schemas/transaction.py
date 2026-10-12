@@ -22,7 +22,7 @@ class TransactionIn(BaseModel):
     """One transaction as accepted by the CSV importer and the ingestion API."""
 
     external_id: Annotated[str, Field(pattern=r"^[A-Za-z0-9_.:-]{1,100}$")] | None = None
-    step: int = Field(ge=0, le=1_000_000, description="Simulated hour (PaySim 'step')")
+    step: int = Field(ge=1, le=1_000_000, description="Simulated hour (PaySim 'step')")
     type: TransactionType
     amount: Amount
     origin_account: AccountId

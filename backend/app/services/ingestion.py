@@ -50,7 +50,7 @@ CHUNK_SIZE = 1000
 
 
 def occurred_at_for_step(step: int) -> datetime:
-    return SIMULATION_EPOCH + timedelta(hours=max(step - 1, 0))
+    return SIMULATION_EPOCH + timedelta(hours=step - 1)
 
 
 def _money(value: Decimal) -> str:

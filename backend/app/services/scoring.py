@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 from fintrace_ml.features import build_features, risk_indicators
-from sqlalchemy import and_, exists, func, select
+from sqlalchemy import and_, exists, func, select, text
 from sqlalchemy.orm import Session, aliased
 
 from app.models import Alert, MonitoringRule, RiskAssessment, Transaction
@@ -90,6 +90,7 @@ def score_transactions(
     """Score a batch, persist one assessment per transaction, create alerts. Caller commits."""
     if not transactions:
         return [], []
+    lock_scoring(db)
     rules = db.scalars(
         select(MonitoringRule).where(MonitoringRule.enabled.is_(True)).order_by(MonitoringRule.id)
     ).all()
@@ -114,7 +115,8 @@ def score_transactions(
     assessments: list[RiskAssessment] = []
     alerts: list[Alert] = []
     for tx, row, raw_score in zip(transactions, rows, scores, strict=True):
-        score = round(float(raw_score), 5)
+        raw = float(raw_score)
+        score = round(raw, 5)  # stored precision; decisions use the raw score
         h = history[tx.id]
         facts = TxFacts(
             type=tx.type,
@@ -137,9 +139,9 @@ def score_transactions(
                     }
                 )
 
-        above = score >= model.threshold
+        above = raw >= model.threshold
         level = _max_level(
-            [model_level(score, model.threshold), *(RiskLevel(hit["severity"]) for hit in hits)]
+            [model_level(raw, model.threshold), *(RiskLevel(hit["severity"]) for hit in hits)]
         )
         reasons = (["MODEL_SCORE_ABOVE_THRESHOLD"] if above else []) + [
             f"RULE_{hit['code']}" for hit in hits
@@ -175,8 +177,21 @@ def score_transactions(
     return assessments, alerts
 
 
+# Arbitrary constant key for pg_advisory_xact_lock; held until the caller's transaction ends.
+SCORING_LOCK_KEY = 7_311_004
+
+
+def lock_scoring(db: Session) -> None:
+    """Serialise scoring runs (CLI and API) so they cannot double-score or double-alert."""
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": SCORING_LOCK_KEY})
+
+
 def unscored_transactions(db: Session, model: LoadedModel, limit: int) -> list[Transaction]:
-    """Oldest transactions that have no assessment from the active model yet."""
+    """Oldest transactions that have no assessment from the active model yet.
+
+    Takes the scoring lock first, so two concurrent runs never pick the same rows.
+    """
+    lock_scoring(db)
     scored = exists().where(
         and_(
             RiskAssessment.transaction_id == Transaction.id,

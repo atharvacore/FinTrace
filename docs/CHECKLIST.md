@@ -70,3 +70,4 @@ Last updated: 2026-10-12 (end of Phase 4)
 | 2 Ingestion | 2026-10-11 | 83 tests passed; ruff clean (backend + scripts); 100k-row import in 20 s |
 | 3 ML pipeline | 2026-10-11 | 21 ML tests passed; ruff clean; PaySim inspected and trained (strict + 2 ablations) |
 | 4 Scoring + alerts | 2026-10-12 | 131 backend tests passed; ruff clean; 200,000 PaySim rows imported and scored with the real model |
+| 4 Review fixes | 2026-10-12 | Clean-clone re-check (152 tests, migrations up/down) then code review; fixes in ADR-023 and migration 0003; 143 backend tests passed; ruff clean |

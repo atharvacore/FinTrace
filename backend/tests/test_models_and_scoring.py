@@ -217,3 +217,30 @@ def test_scoring_is_audited(client, senior, imported_sample, active_model, db):
     client.post("/api/v1/scoring/run", json={"limit": 10}, headers=senior)
     event = db.scalar(select(AuditEvent).where(AuditEvent.action == "scoring.run"))
     assert event.after["scored"] == 10
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("version", "."), ("version", ".."), ("version", ""), ("version", 7), ("threshold", 0.999999)],
+)
+def test_unsafe_artifact_metadata_is_refused(client, admin, promoted, field, value):
+    import json
+
+    meta_path = promoted / "metadata.json"
+    meta = json.loads(meta_path.read_text())
+    meta[field] = value
+    meta_path.write_text(json.dumps(meta))
+    resp = client.post("/api/v1/models/sync", headers=admin)
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "INVALID_MODEL_ARTIFACT"
+
+
+def test_resync_restores_a_missing_registry_copy(client, admin, promoted, senior, imported_sample):
+    from app.core.config import get_settings
+
+    version = client.post("/api/v1/models/sync", headers=admin).json()["version"]
+    shutil.rmtree(get_settings().model_registry_dir / version)
+    assert client.post("/api/v1/models/sync", headers=admin).status_code == 200
+    assert (get_settings().model_registry_dir / version / "model.joblib").is_file()
+    resp = client.post("/api/v1/scoring/run", json={"limit": 10}, headers=senior)
+    assert resp.status_code == 200

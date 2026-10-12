@@ -58,7 +58,7 @@ flowchart LR
 **Key boundaries**
 
 - **Training is offline.** `ml/` scripts read a CSV and write an artifact folder. The API never trains.
-- **Inference is online.** The API loads the artifact named in `model_versions` (active row). No artifact means scoring returns `503 MODEL_NOT_AVAILABLE` with the exact command to train one. Rules can still run, and are labelled as rules-only.
+- **Inference is online.** The API loads the artifact named in `model_versions` (active row). No artifact means scoring returns `503 MODEL_NOT_AVAILABLE` with the exact command to train one. (Planned rules-only scoring was dropped in Phase 4: every assessment names a model version, ADR-018.)
 - **One shared feature module** (`ml/fintrace_ml/features.py`) is imported by both training and the API, so online features match offline features.
 - **Human in the loop.** The system raises alerts. Only an analyst records a case decision.
 
@@ -90,7 +90,7 @@ erDiagram
 | `transactions` | id, dedup_key, external_id, source (`csv`, `api`), import_batch_id → import_batches, step, occurred_at, type, amount, origin_account, dest_account, old/new balances (orig & dest), label_is_fraud (nullable, synthetic ground truth only), created_at | `dedup_key` unique (duplicate-safe imports via `ON CONFLICT DO NOTHING`); `amount > 0`; balances `>= 0`; `type` in 5 PaySim types; indexes on occurred_at, origin_account, dest_account, type |
 | `monitoring_rules` | id, code, name, description, rule_type, parameters (jsonb), severity, enabled, updated_by, updated_at | `code` unique; parameters validated by Pydantic per rule_type |
 | `model_versions` | id, version, algorithm, artifact_path, artifact_sha256, feature_set, threshold, metrics (jsonb), dataset_fingerprint, trained_at, is_active | `version` unique; partial unique index: only one `is_active = true` |
-| `risk_assessments` | id, transaction_id → transactions, model_version_id → model_versions (null = rules only), risk_score (0–1), risk_level, reason_codes (text[]), rule_hits (jsonb), scored_at | `0 <= risk_score <= 1`; index (transaction_id, scored_at desc) |
+| `risk_assessments` | id, transaction_id → transactions, model_version_id → model_versions (required, ADR-018), risk_score (0–1), risk_level, reason_codes (text[]), rule_hits (jsonb), scored_at | `0 <= risk_score <= 1`; index (transaction_id, scored_at desc) |
 | `alerts` | id, transaction_id, risk_assessment_id, priority (`low`…`critical`), status (`open`, `in_review`, `escalated`, `closed_false_positive`, `closed_actioned`), assignee_id → users, created_at, updated_at | `risk_assessment_id` unique; indexes on (status, priority), assignee_id |
 | `cases` | id, reference (`CASE-000123`), title, description, status (`open`, `investigating`, `pending_decision`, `closed`), priority, assignee_id, created_by, decision (`no_further_action`, `false_positive`, `escalate_for_reporting`), decision_rationale, decided_by, decided_at, timestamps | `reference` unique; CHECK: status `closed` ⇔ decision not null |
 | `case_alerts` | case_id, alert_id, linked_by, linked_at | PK (case_id, alert_id); `alert_id` unique (one case per alert) |
@@ -113,7 +113,7 @@ All foreign keys are real FKs with `ON DELETE RESTRICT` (financial records are n
 | `GET /auth/me` | Current user | analyst |
 | `GET /users`, `POST /users`, `PATCH /users/{id}` | Manage users and roles | admin |
 | `POST /transactions` | Ingest 1–1000 transactions (JSON, idempotent) | senior_analyst |
-| `GET /transactions` | Search: `q`, `type`, `min_amount`, `max_amount`, `account`, `from`, `to`, `risk_level`, `has_alert`, `sort`, `page`, `page_size` | analyst |
+| `GET /transactions` | Search: `q`, `type`, `min_amount`, `max_amount`, `account`, `from`, `to`, `risk_level`, `has_open_alert`, `sort`, `page`, `page_size` | analyst |
 | `GET /transactions/{id}` | Detail + assessments + alerts + linked cases | analyst |
 | `POST /imports` | Multipart CSV upload → validated, deduplicated batch report | senior_analyst |
 | `GET /imports`, `GET /imports/{id}` | Import history and row-level rejects | analyst |
@@ -122,7 +122,7 @@ All foreign keys are real FKs with `ON DELETE RESTRICT` (financial records are n
 | `GET /models`, `GET /models/active` | Registered model versions + metrics | analyst |
 | `POST /models/{id}/activate` | Switch active model | admin |
 | `GET /rules`, `PATCH /rules/{id}` | View / tune monitoring rules | analyst / admin |
-| `GET /alerts` | Queue: `status`, `priority`, `assignee`, `min_score`, `reason_code`, `page` | analyst |
+| `GET /alerts` | Queue: `status`, `priority`, `assignee_id`, `unassigned`, `min_score`, `reason_code`, `page` | analyst |
 | `GET /alerts/{id}` | Alert + transaction + assessment | analyst |
 | `PATCH /alerts/{id}` | Change status; assign (assign others: senior_analyst) | analyst |
 | `POST /cases`, `GET /cases`, `GET /cases/{id}` | Create / list / view cases | analyst |

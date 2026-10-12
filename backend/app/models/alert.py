@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index
+from sqlalchemy import DateTime, ForeignKey, Index, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, str_enum
@@ -39,4 +39,10 @@ class Alert(TimestampMixin, Base):
     __table_args__ = (
         Index("ix_alerts_status_priority", "status", "priority"),
         Index("ix_alerts_created_at", "created_at"),
+        Index(
+            "uq_alerts_one_open_per_transaction",
+            "transaction_id",
+            unique=True,
+            postgresql_where=text("status IN ('open', 'in_review', 'escalated')"),
+        ),
     )

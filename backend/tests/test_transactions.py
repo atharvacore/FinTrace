@@ -71,6 +71,7 @@ def test_same_external_id_twice_in_one_request(client, senior):
         {"origin_balance_before": "-1"},
         {"origin_account": "has space"},
         {"external_id": ""},
+        {"step": 0},  # PaySim steps start at 1
     ],
 )
 def test_api_ingestion_validates_each_field(client, senior, bad):
@@ -129,6 +130,7 @@ def ids(resp) -> list[str]:
         ("?q=t3", ["t3"]),
         ("?min_amount=100&max_amount=1000", ["t2"]),
         ("?from=2026-01-01T01:00:00Z&to=2026-01-01T02:00:00Z", ["t3", "t2"]),
+        ("?from=2026-01-01T01:00:00&to=2026-01-01T02:00:00Z", ["t3", "t2"]),  # naive = UTC
         ("?q=C_", []),  # LIKE wildcards are escaped
     ],
 )

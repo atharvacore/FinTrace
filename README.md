@@ -46,7 +46,7 @@ audit trail.
   returns `503 MODEL_NOT_AVAILABLE` with the commands to fix it, instead of inventing a score.
 - An alert queue with filters, sorting, assignment and a status workflow enforced on the server
   (analysts work their own alerts; senior analysts assign, close escalations and reopen).
-- 152 automated tests (131 backend on real PostgreSQL, 21 ML), plus ruff linting, all run in
+- 164 automated tests (143 backend on real PostgreSQL, 21 ML), plus ruff linting, all run in
   GitHub Actions.
 
 Cases, notes, decisions, metrics and the React dashboard arrive in Phase 5.

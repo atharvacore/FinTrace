@@ -156,3 +156,60 @@ def test_alert_detail_and_404(client, people, db):
     assert client.get("/api/v1/alerts/999999", headers=h).status_code == 404
     assert patch(client, h, 999999, status="in_review").status_code == 404
     assert db.scalar(select(func.count()).select_from(Alert)) > 0
+
+
+@pytest.mark.usefixtures("scored")
+def test_analyst_cannot_close_an_escalation_in_two_steps(client, people):
+    _, h = people["analyst"]
+    _, senior_h = people["senior"]
+    aid = first_alert_id(client, h)
+    assert patch(client, h, aid, status="escalated").status_code == 200
+    assert patch(client, h, aid, status="in_review").status_code == 403
+    assert patch(client, h, aid, status="closed_false_positive").status_code == 403
+    assert patch(client, senior_h, aid, status="in_review").status_code == 200
+
+
+def add_open_alert(db, alert: Alert) -> Alert:
+    """Insert another open alert (with its own assessment) for the same transaction."""
+    from app.models import RiskAssessment
+
+    old = alert.assessment
+    assessment = RiskAssessment(
+        transaction_id=alert.transaction_id,
+        model_version_id=old.model_version_id,
+        risk_score=old.risk_score,
+        risk_level=old.risk_level,
+        reason_codes=[],
+        rule_hits=[],
+    )
+    db.add(assessment)
+    db.flush()
+    new = Alert(
+        transaction_id=alert.transaction_id,
+        risk_assessment_id=assessment.id,
+        priority=alert.priority,
+        status="open",
+    )
+    db.add(new)
+    db.flush()
+    return new
+
+
+@pytest.mark.usefixtures("scored")
+def test_only_one_open_alert_per_transaction(client, people, db):
+    from sqlalchemy.exc import IntegrityError
+
+    _, senior_h = people["senior"]
+    aid = first_alert_id(client, senior_h)
+    with pytest.raises(IntegrityError):
+        add_open_alert(db, db.get(Alert, aid))
+    db.rollback()
+
+    # Close it, let a newer alert open, then try to reopen the old one: 409, not a 500.
+    assert patch(client, senior_h, aid, status="closed_false_positive").status_code == 200
+    db.expire_all()
+    add_open_alert(db, db.get(Alert, aid))
+    db.commit()
+    resp = patch(client, senior_h, aid, status="in_review")
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "ALERT_ALREADY_OPEN"

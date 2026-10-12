@@ -22,7 +22,7 @@ Date: 2026-10-11
 
 ## Incomplete
 
-- `risk_level` and `has_alert` search filters: they need scoring, so they arrive in Phase 4 (not added as do-nothing parameters now).
+- `risk_level` and `has_open_alert` search filters: they need scoring, so they arrive in Phase 4 (not added as do-nothing parameters now).
 - Transaction detail does not yet show assessments, alerts or cases (Phases 4–5).
 
 ## Blocked

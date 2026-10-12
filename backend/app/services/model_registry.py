@@ -10,6 +10,8 @@ Flow:
 
 import hashlib
 import json
+import math
+import re
 import shutil
 from dataclasses import dataclass
 from datetime import datetime
@@ -27,6 +29,7 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.models import ModelVersion
 
+VERSION_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 TRAIN_COMMAND = "python -m fintrace_ml.train data/raw/paysim.csv --data-kind paysim --promote"
 REQUIRED_METADATA = ("version", "algorithm", "feature_set", "features", "threshold",
                      "artifact_sha256", "dataset", "trained_at", "models")  # fmt: skip
@@ -64,6 +67,18 @@ def read_artifact(folder: Path) -> dict[str, Any]:
         raise AppError(
             422, "INVALID_MODEL_ARTIFACT", f"metadata.json is missing: {', '.join(missing)}"
         )
+    version, threshold = meta["version"], meta["threshold"]
+    if not isinstance(version, str) or not VERSION_PATTERN.fullmatch(version):
+        # The version becomes a folder name in the registry, so it must be a plain name.
+        raise AppError(422, "INVALID_MODEL_ARTIFACT", "Unsafe or invalid model version")
+    if not isinstance(threshold, int | float) or not math.isfinite(threshold):
+        raise AppError(422, "INVALID_MODEL_ARTIFACT", "Model threshold must be a number")
+    if not 0 < round(threshold, 5) < 1:
+        raise AppError(
+            422,
+            "INVALID_MODEL_ARTIFACT",
+            f"Model threshold {threshold} rounds outside (0, 1); retrain or choose a budget",
+        )
     if _sha256(model_path) != meta["artifact_sha256"]:
         raise AppError(
             409,
@@ -80,6 +95,15 @@ def _activate(db: Session, model: ModelVersion) -> None:
     model.is_active = True
 
 
+def _copy_to_registry(source: Path, registry_dir: Path, version: str) -> None:
+    target = registry_dir / version
+    if target.resolve().parent != registry_dir.resolve():
+        raise AppError(422, "INVALID_MODEL_ARTIFACT", "Unsafe model version")
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(source, target)
+
+
 def sync_from_promoted(db: Session) -> tuple[ModelVersion, bool]:
     """Register (if new) and activate the artifact in FINTRACE_MODEL_DIR.
 
@@ -87,9 +111,7 @@ def sync_from_promoted(db: Session) -> tuple[ModelVersion, bool]:
     """
     settings = get_settings()
     meta = read_artifact(settings.model_dir)
-    version = meta["version"]
-    if not all(c.isalnum() or c in "-_." for c in version):
-        raise AppError(422, "INVALID_MODEL_ARTIFACT", "Unsafe characters in model version")
+    version = meta["version"]  # validated by read_artifact
 
     existing = db.scalar(select(ModelVersion).where(ModelVersion.version == version))
     if existing is not None:
@@ -99,13 +121,13 @@ def sync_from_promoted(db: Session) -> tuple[ModelVersion, bool]:
                 "MODEL_VERSION_CONFLICT",
                 f"Version {version} is already registered with a different artifact",
             )
-        _activate(db, existing)
+        if not (settings.model_registry_dir / existing.artifact_path / "model.joblib").is_file():
+            # The registry copy was lost (e.g. a new FINTRACE_MODEL_REGISTRY_DIR): restore it.
+            _copy_to_registry(settings.model_dir, settings.model_registry_dir, version)
+        activate(db, existing)
         return existing, False
 
-    target = settings.model_registry_dir / version
-    if target.exists():
-        shutil.rmtree(target)
-    shutil.copytree(settings.model_dir, target)
+    _copy_to_registry(settings.model_dir, settings.model_registry_dir, version)
     model = ModelVersion(
         version=version,
         algorithm=meta["algorithm"],
@@ -161,7 +183,9 @@ def load_active(db: Session) -> LoadedModel:
             version=row.version,
             feature_set=row.feature_set,
             features=list(meta["features"]),
-            threshold=float(row.threshold),
+            # Full-precision threshold from the verified metadata, so online alert decisions
+            # match the offline evaluation exactly (the DB column is rounded for display).
+            threshold=float(meta["threshold"]),
             estimator=joblib.load(folder / "model.joblib"),  # trusted: hash verified above
         )
         _cache.clear()

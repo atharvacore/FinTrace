@@ -90,7 +90,7 @@ class Transaction(Base):
         Index("ix_transactions_origin_step", "origin_account", "step"),
         Index("ix_transactions_dest_step", "dest_account", "step"),
         CheckConstraint("amount > 0", name="amount_positive"),
-        CheckConstraint("step >= 0", name="step_non_negative"),
+        CheckConstraint("step >= 1", name="step_positive"),
         CheckConstraint(
             "origin_balance_before >= 0 AND origin_balance_after >= 0 "
             "AND dest_balance_before >= 0 AND dest_balance_after >= 0",

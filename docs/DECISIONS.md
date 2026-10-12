@@ -124,8 +124,35 @@ alerts (16.5% of all transactions), because 43% of legitimate PaySim transfers a
 whole balance. The model alone raised 137. The rule now ships as medium, so it explains alerts rather
 than creating them. This is the classic rules-versus-model workload trade-off, measured.
 
+Note that all four seeded rules are `medium`, so out of the box **no rule raises an alert on its
+own**: alerts come from the model, and rules add reasons and raise the level. An admin can set a
+rule to `high` (`PATCH /api/v1/rules/{id}`) to make it alerting; that change is audited.
+
 ## ADR-022 The API imports the shared feature code
 The backend installs `ml/` as a package (`pip install -e ./ml -e ./backend[dev]`) and calls
 `fintrace_ml.features.build_features`. History counts come from the database (strictly earlier
 hours) instead of the CSV. `test_online_scores_match_offline_pipeline` checks that both paths give
 the same score for all 5,000 sample transactions.
+
+## ADR-023 Fixes from the Phase 1–4 review (2026-10-12)
+A full code review before Phase 5 led to these changes (migration `0003`, 12 new tests):
+
+- **Escalations are senior-only.** An analyst could move an escalated alert back to `in_review` and
+  then close it. Analysts now cannot change the status of an escalated alert at all.
+- **One open alert per transaction, also under concurrency.** Two scoring runs at once (CLI plus
+  API) could both alert the same transaction. Scoring now takes a PostgreSQL advisory lock, and a
+  partial unique index allows only one `open`/`in_review`/`escalated` alert per transaction.
+  Reopening a closed alert while a newer one is open returns `409 ALERT_ALREADY_OPEN`.
+- **Upload size is checked before the body is read.** FastAPI reads a multipart body before auth
+  runs, so the 50 MB check in the route came too late. Middleware now rejects
+  `POST /api/v1/imports` from its `Content-Length` (411 if missing, 413 if too big).
+- **Model metadata is validated.** The version must be a plain name (it becomes a folder name) and
+  the threshold must round to a value strictly between 0 and 1; otherwise `422`. Alert decisions use
+  the full-precision score and threshold from the verified artifact, matching the offline
+  evaluation exactly; the database keeps 5-decimal copies for display. Re-syncing a registered
+  version restores its registry copy if that folder was lost.
+- **Smaller fixes.** `step` must be ≥ 1 (PaySim starts at 1); naive `from`/`to` search times are
+  read as UTC instead of failing with a 500; 500 responses carry the `X-Request-ID` header.
+- **Known limitation, documented rather than changed:** `ORIGIN_VELOCITY` counts transactions in
+  strictly earlier hours, the same as the model's history features. A burst within one PaySim hour
+  is invisible to it, because PaySim gives no order inside an hour.

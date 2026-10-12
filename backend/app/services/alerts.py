@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 
 from fastapi import status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
@@ -25,6 +26,19 @@ def _is_senior(user: User) -> bool:
 
 def _forbidden(message: str) -> AppError:
     return AppError(status.HTTP_403_FORBIDDEN, "FORBIDDEN", message)
+
+
+def _other_open_alert(db: Session, alert: Alert) -> bool:
+    return (
+        db.scalar(
+            select(Alert.id).where(
+                Alert.transaction_id == alert.transaction_id,
+                Alert.id != alert.id,
+                Alert.status.not_in(CLOSED),
+            )
+        )
+        is not None
+    )
 
 
 def snapshot(alert: Alert) -> dict:
@@ -70,7 +84,14 @@ def apply_update(
                 raise _forbidden("This alert is assigned to someone else")
             if alert.status in CLOSED:
                 raise _forbidden("Only a senior analyst can reopen a closed alert")
-            if alert.status == AlertStatus.ESCALATED and new_status in CLOSED:
-                raise _forbidden("Only a senior analyst can close an escalated alert")
+            if alert.status == AlertStatus.ESCALATED:
+                # Otherwise an analyst could de-escalate to in_review and then close it.
+                raise _forbidden("Only a senior analyst can act on an escalated alert")
+        if alert.status in CLOSED and new_status not in CLOSED and _other_open_alert(db, alert):
+            raise AppError(
+                status.HTTP_409_CONFLICT,
+                "ALERT_ALREADY_OPEN",
+                "This transaction already has another open alert; work that one instead",
+            )
         alert.status = new_status
         alert.closed_at = datetime.now(UTC) if new_status in CLOSED else None

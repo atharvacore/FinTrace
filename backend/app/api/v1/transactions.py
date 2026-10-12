@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated
@@ -61,6 +61,12 @@ _ORDER = {
 }
 
 
+def _as_utc(value: datetime | None) -> datetime | None:
+    if value is None or value.tzinfo is not None:
+        return value
+    return value.replace(tzinfo=UTC)
+
+
 class TransactionFilters:
     """Query-string filters for the transaction search."""
 
@@ -88,6 +94,9 @@ class TransactionFilters:
     ) -> None:
         if min_amount is not None and max_amount is not None and min_amount > max_amount:
             raise AppError(422, "VALIDATION_ERROR", "min_amount must not exceed max_amount")
+        # Times without a timezone are read as UTC (comparing naive with aware would fail).
+        occurred_from = _as_utc(occurred_from)
+        occurred_to = _as_utc(occurred_to)
         if occurred_from and occurred_to and occurred_from > occurred_to:
             raise AppError(422, "VALIDATION_ERROR", "'from' must not be after 'to'")
         self.q = q.strip() if q else None

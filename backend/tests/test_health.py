@@ -33,3 +33,22 @@ def test_unknown_route_uses_consistent_error_shape(client):
     error = resp.json()["error"]
     assert error["code"] == "NOT_FOUND"
     assert error["request_id"] == resp.headers["X-Request-ID"]
+
+
+def test_unexpected_errors_keep_the_error_shape_and_request_id():
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    app = create_app()
+
+    @app.get("/boom")
+    def boom() -> None:
+        raise RuntimeError("boom")
+
+    with TestClient(app, raise_server_exceptions=False) as c:
+        resp = c.get("/boom", headers={"X-Request-ID": "req-500"})
+    assert resp.status_code == 500
+    assert resp.json()["error"]["code"] == "INTERNAL_ERROR"
+    assert resp.json()["error"]["request_id"] == "req-500"
+    assert resp.headers["X-Request-ID"] == "req-500"

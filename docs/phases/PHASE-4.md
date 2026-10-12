@@ -16,7 +16,7 @@ Date: 2026-10-12 · Delivered as pull request #1 (`wip/phase-4` → `main`)
 
 - **Migration 0002**: `(account, step)` history indexes (replacing two single-column ones), assessment-by-model index, `model_versions.is_synthetic_demo`, `risk_assessments.model_version_id` now NOT NULL, four seeded rules. Upgrade, downgrade and `alembic check` all verified.
 - **Model registry** (`/models`, `/models/active`, `/models/sync`, `/models/{id}/activate`, CLI `sync-model`): sha256 verification on register, activate and load; registry copies per version; rollback; audited.
-- **Scoring** (`/scoring/transactions/{id}`, `/scoring/run`, CLI `score`): history counts in one SQL query per batch, shared `build_features`, feature-list check against the artifact, rule evaluation, risk level, reason codes (model, rule and indicator codes), alert creation without duplicates. No model → `503 MODEL_NOT_AVAILABLE` with exact commands.
+- **Scoring** (`/scoring/transactions/{id}`, `/scoring/run`, CLI `score`): history counts in one SQL query per batch, shared `build_features`, feature-list check against the artifact, rule evaluation, risk level, reason codes (model, rule and indicator codes), at most one open alert per transaction (enforced by a partial unique index since migration 0003, and scoring runs are serialised with a PostgreSQL advisory lock). No model → `503 MODEL_NOT_AVAILABLE` with exact commands.
 - **Rules** (`/rules`, `PATCH /rules/{id}`): four types with strict Pydantic parameter schemas (unknown keys rejected), admin-only edits, audited with before/after.
 - **Alerts** (`/alerts`, `/alerts/{id}`, `PATCH /alerts/{id}`): filters (status, priority, assignee, unassigned, mine, min score, reason code, transaction), four sort orders, transition table, role rules, row lock against concurrent edits, `closed_at`, audit only on real changes.
 - **Transactions**: list shows latest score, level and open-alert flag; filters `risk_level`, `has_open_alert`; detail includes assessment history and alerts.
@@ -73,3 +73,13 @@ Modified: `backend/app/api/v1/{health,router,transactions}.py`, `backend/app/{cl
 2. **Refuse rather than guess.** No model, or a model whose file hash doesn't match, means a 503 or 409 with instructions, never a made-up score.
 3. **Rules and models do different jobs.** The model ranks; rules add explainable context and hard policy limits. The 33,000-vs-137 measurement shows why an alerting rule must be tuned against real volume before it ships.
 4. **Workflow rules live on the server.** Who may assign, close or reopen is checked in `services/alerts.py`, with a row lock so two analysts cannot overwrite each other, and every real change is audited with before and after values.
+
+## Review fixes (2026-10-12, before Phase 5)
+
+Phases 1–4 were re-checked from a clean clone (fresh venv and database: 131 backend and 21 ML
+tests passed, `alembic upgrade` / `downgrade base` / `upgrade` and `alembic check` clean), then
+reviewed against the plan. The fixes are listed in [ADR-023](../DECISIONS.md): escalations are
+senior-only, one open alert per transaction under concurrency (migration `0003`), upload size
+checked before the body is read, model metadata validated, and three smaller error-handling fixes.
+12 new tests; **143 backend tests passed**, ruff clean.
+
