@@ -4,10 +4,11 @@ from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.deps import AdminUser, DbSession
+from app.api.deps import AdminUser, AnalystUser, DbSession
 from app.core.errors import AppError, conflict, not_found
 from app.core.security import hash_password
 from app.models import User
+from app.schemas.case import AssignableUser
 from app.schemas.common import ErrorResponse, Page, PageParams
 from app.schemas.user import UserCreate, UserRead, UserUpdate
 from app.services.audit import record_audit
@@ -42,6 +43,17 @@ def list_users(
         page=params.page,
         page_size=params.page_size,
         total=total,
+    )
+
+
+@router.get(
+    "/assignable",
+    response_model=list[AssignableUser],
+    summary="Active users that alerts and cases can be assigned to",
+)
+def assignable_users(_: AnalystUser, db: DbSession) -> list[User]:
+    return list(
+        db.scalars(select(User).where(User.is_active.is_(True)).order_by(User.full_name)).all()
     )
 
 

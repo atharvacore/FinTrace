@@ -1,10 +1,11 @@
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, str_enum
 from app.models.enums import CaseDecision, CaseStatus, RiskLevel
+from app.models.user import User
 
 
 class Case(TimestampMixin, Base):
@@ -30,6 +31,10 @@ class Case(TimestampMixin, Base):
     decision_rationale: Mapped[str | None] = mapped_column(Text)
     decided_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_id], lazy="joined")
+    created_by: Mapped[User] = relationship(foreign_keys=[created_by_id], lazy="joined")
+    decided_by: Mapped[User | None] = relationship(foreign_keys=[decided_by_id], lazy="joined")
 
     __table_args__ = (
         # A closed case must carry a decision; an open case must not.
@@ -74,6 +79,7 @@ class CaseNote(Base):
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    author: Mapped[User] = relationship(lazy="joined")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

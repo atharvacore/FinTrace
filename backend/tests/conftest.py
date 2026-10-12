@@ -163,3 +163,23 @@ def imported_sample(db):
         batch = import_csv(db, fh, SAMPLE_CSV.name, uploaded_by=None)
     db.commit()
     return batch
+
+
+@pytest.fixture
+def scored(client, make_user, login, imported_sample, active_model):
+    senior = login(make_user(Role.SENIOR_ANALYST))
+    resp = client.post("/api/v1/scoring/run", json={"limit": 5000}, headers=senior).json()
+    assert resp["alerts_created"] >= 3
+    return resp
+
+
+@pytest.fixture
+def people(make_user, login):
+    analyst = make_user(Role.ANALYST)
+    other = make_user(Role.ANALYST)
+    senior = make_user(Role.SENIOR_ANALYST)
+    return {
+        "analyst": (analyst, login(analyst)),
+        "other": (other, login(other)),
+        "senior": (senior, login(senior)),
+    }

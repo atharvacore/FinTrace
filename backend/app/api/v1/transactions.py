@@ -23,6 +23,7 @@ from app.schemas.transaction import (
 )
 from app.services.alerts import CLOSED
 from app.services.audit import record_audit
+from app.services.cases import case_links
 from app.services.ingestion import ingest_api_transactions
 
 router = APIRouter(
@@ -236,11 +237,23 @@ def get_transaction(transaction_id: int, _: AnalystUser, db: DbSession) -> Trans
         .where(RiskAssessment.transaction_id == tx.id)
         .order_by(RiskAssessment.scored_at.desc(), RiskAssessment.id.desc())
     ).all()
-    alerts = db.scalars(
-        select(Alert).where(Alert.transaction_id == tx.id).order_by(Alert.created_at.desc())
-    ).unique()
+    alerts = list(
+        db.scalars(
+            select(Alert).where(Alert.transaction_id == tx.id).order_by(Alert.created_at.desc())
+        ).unique()
+    )
+    links = case_links(db, [a.id for a in alerts])
     return TransactionWithHistory(
         **TransactionDetail.model_validate(tx).model_dump(),
         assessments=[RiskAssessmentRead.model_validate(a) for a in assessments],
-        alerts=[AlertSummary.model_validate(a) for a in alerts],
+        alerts=[
+            AlertSummary.model_validate(
+                {
+                    **AlertSummary.model_validate(a).model_dump(),
+                    "case_id": links.get(a.id, (None, None))[0],
+                    "case_reference": links.get(a.id, (None, None))[1],
+                }
+            )
+            for a in alerts
+        ],
     )

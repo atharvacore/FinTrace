@@ -5,26 +5,6 @@ from app.models import Alert, AuditEvent
 from app.models.enums import Role
 
 
-@pytest.fixture
-def scored(client, make_user, login, imported_sample, active_model):
-    senior = login(make_user(Role.SENIOR_ANALYST))
-    resp = client.post("/api/v1/scoring/run", json={"limit": 5000}, headers=senior).json()
-    assert resp["alerts_created"] >= 3
-    return resp
-
-
-@pytest.fixture
-def people(make_user, login):
-    analyst = make_user(Role.ANALYST)
-    other = make_user(Role.ANALYST)
-    senior = make_user(Role.SENIOR_ANALYST)
-    return {
-        "analyst": (analyst, login(analyst)),
-        "other": (other, login(other)),
-        "senior": (senior, login(senior)),
-    }
-
-
 def first_alert_id(client, headers, **query) -> int:
     qs = "&".join(f"{k}={v}" for k, v in query.items())
     return client.get(f"/api/v1/alerts?{qs}", headers=headers).json()["items"][0]["id"]
