@@ -114,9 +114,15 @@ so only artifacts produced by our own pipeline should ever be placed there.
 An alert is created when the model score reaches the operating threshold chosen on validation, or
 when an enabled rule with severity `high` or `critical` fires. Medium rules add reason codes and
 raise the level but do not alert alone. A transaction with an open alert does not get a second one
-when re-scored. Risk level: at or above threshold = high (critical in the upper half of the
-remaining range), at least half the threshold = medium, else low; a rule hit can raise the level to
-its severity.
+when re-scored. Risk level: at or above threshold = high, at least half the threshold = medium,
+else low; a rule hit raises the level to its severity. **Critical** means the model is above its
+threshold *and* at least two monitoring rules fire: independent evidence agrees.
+
+*Revised 2026-10-12.* The first version made an alert critical when its score sat in the upper half
+of the band between the threshold and 1.0. On PaySim the threshold is 0.9945 and every fraud scores
+0.9975 or more, so 135 of 137 alerts were critical and priority told analysts nothing. Scores that
+saturate near 1.0 cannot rank alerts; agreement between the model and the rules can (34 critical,
+103 high on the same 200,000 rows).
 
 ## ADR-021 `BALANCE_DRAIN` ships as a medium (non-alerting) rule
 First end-to-end run on 200,000 PaySim rows: with `BALANCE_DRAIN` at high severity it raised 32,978
