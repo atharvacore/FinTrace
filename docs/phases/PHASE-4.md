@@ -74,6 +74,13 @@ Modified: `backend/app/api/v1/{health,router,transactions}.py`, `backend/app/{cl
 3. **Rules and models do different jobs.** The model ranks; rules add explainable context and hard policy limits. The 33,000-vs-137 measurement shows why an alerting rule must be tuned against real volume before it ships.
 4. **Workflow rules live on the server.** Who may assign, close or reopen is checked in `services/alerts.py`, with a row lock so two analysts cannot overwrite each other, and every real change is audited with before and after values.
 
+## Priority fix (2026-10-12)
+
+Santa noticed in the Phase 5 screenshots that almost every alert was critical (135 of 137). The
+model's scores above its threshold are saturated near 1.0 on PaySim, so "upper half of the band
+above the threshold" put nearly every alert in the top band. Critical now requires the model and at
+least two monitoring rules to agree (ADR-020). Re-scored, the same rows give 34 critical and 103 high.
+
 ## Review fixes (2026-10-12, before Phase 5)
 
 Phases 1–4 were re-checked from a clean clone (fresh venv and database: 131 backend and 21 ML

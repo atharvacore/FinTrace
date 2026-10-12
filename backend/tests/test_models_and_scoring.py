@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 
 from app.models import Alert, AuditEvent, RiskAssessment
 from app.models.enums import RiskLevel, Role
-from app.services.scoring import model_level
+from app.services.scoring import model_level, risk_level
 from tests.conftest import SAMPLE_CSV
 
 
@@ -114,10 +114,22 @@ def test_activate_switches_versions(client, admin, promoted, tmp_path, db):
 
 
 def test_model_level_is_relative_to_threshold():
-    assert model_level(0.95, 0.9) == RiskLevel.CRITICAL
+    # A saturated score is still only HIGH: the model alone never makes an alert critical.
+    assert model_level(0.9999, 0.9) == RiskLevel.HIGH
     assert model_level(0.91, 0.9) == RiskLevel.HIGH
     assert model_level(0.5, 0.9) == RiskLevel.MEDIUM
     assert model_level(0.1, 0.9) == RiskLevel.LOW
+
+
+def test_critical_needs_the_model_and_two_rules_to_agree():
+    medium, high = RiskLevel.MEDIUM, RiskLevel.HIGH
+    assert risk_level(0.95, 0.9, []) == RiskLevel.HIGH
+    assert risk_level(0.95, 0.9, [medium]) == RiskLevel.HIGH
+    assert risk_level(0.95, 0.9, [medium, medium]) == RiskLevel.CRITICAL
+    # Rules alone raise the level to their severity but never to critical by count.
+    assert risk_level(0.1, 0.9, [medium, medium, medium]) == RiskLevel.MEDIUM
+    assert risk_level(0.1, 0.9, [high]) == RiskLevel.HIGH
+    assert risk_level(0.1, 0.9, [RiskLevel.CRITICAL]) == RiskLevel.CRITICAL
 
 
 @pytest.mark.usefixtures("imported_sample")
