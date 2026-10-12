@@ -3,8 +3,10 @@
 Set FINTRACE_TEST_DATABASE_URL to point at an empty, disposable database.
 """
 
+import importlib.util
 import os
 import secrets
+import tempfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -19,6 +21,7 @@ os.environ["FINTRACE_ENV"] = "test"
 os.environ["FINTRACE_DATABASE_URL"] = TEST_DB_URL
 os.environ["FINTRACE_JWT_SECRET"] = secrets.token_urlsafe(48)
 os.environ["FINTRACE_MODEL_DIR"] = str(Path(__file__).parent / "_no_model_here")
+os.environ["FINTRACE_MODEL_REGISTRY_DIR"] = tempfile.mkdtemp(prefix="fintrace-registry-")
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
@@ -29,10 +32,23 @@ from sqlalchemy.orm import Session  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.db import get_engine, get_session_factory  # noqa: E402
 from app.main import create_app  # noqa: E402
-from app.models import Base, User  # noqa: E402
+from app.models import Base, MonitoringRule, User  # noqa: E402
 from app.models.enums import Role  # noqa: E402
 
 ALEMBIC_INI = Path(__file__).resolve().parents[1] / "alembic.ini"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SAMPLE_CSV = REPO_ROOT / "data" / "sample" / "synthetic_transactions.csv"
+
+
+def _default_rules() -> list[dict]:
+    """The rules seeded by migration 0002, read from the migration itself."""
+    path = next((ALEMBIC_INI.parent / "alembic" / "versions").glob("0002_*.py"))
+    spec = importlib.util.spec_from_file_location("migration_0002", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.DEFAULT_RULES
+
+
 TEST_PASSWORD = "correct-horse-battery-staple"
 
 
@@ -57,7 +73,9 @@ def _clean_tables() -> Iterator[None]:
     yield
     tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
     with get_engine().begin() as conn:
-        conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+        conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))  # noqa: S608
+        # Restore the seeded monitoring rules, as a fresh migration would leave them.
+        conn.execute(MonitoringRule.__table__.insert(), _default_rules())
 
 
 @pytest.fixture
@@ -102,3 +120,46 @@ def login(client: TestClient) -> Callable[[User], dict[str, str]]:
         return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
     return _login
+
+
+# ---------------------------------------------------------------- model fixtures
+
+
+@pytest.fixture(scope="session")
+def synthetic_artifact(tmp_path_factory) -> Path:
+    """A real model trained on the bundled SYNTHETIC sample (smoke-test quality only)."""
+    from fintrace_ml.train import run
+
+    return run(SAMPLE_CSV, "synthetic", tmp_path_factory.mktemp("artifacts"), seed=3)
+
+
+@pytest.fixture
+def promoted(synthetic_artifact, monkeypatch, tmp_path) -> Path:
+    """Point FINTRACE_MODEL_DIR at a promoted copy of the synthetic artifact."""
+    import shutil
+
+    from app.core.config import get_settings
+
+    current = tmp_path / "current"
+    shutil.copytree(synthetic_artifact, current)
+    monkeypatch.setattr(get_settings(), "model_dir", current)
+    return current
+
+
+@pytest.fixture
+def active_model(promoted, db):
+    from app.services.model_registry import sync_from_promoted
+
+    model, _ = sync_from_promoted(db)
+    db.commit()
+    return model
+
+
+@pytest.fixture
+def imported_sample(db):
+    from app.services.ingestion import import_csv
+
+    with SAMPLE_CSV.open("rb") as fh:
+        batch = import_csv(db, fh, SAMPLE_CSV.name, uploaded_by=None)
+    db.commit()
+    return batch

@@ -34,9 +34,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: backend/pyproject.toml
-      - name: Install
-        run: pip install -e ".[dev]"
+          cache-dependency-path: |
+            backend/pyproject.toml
+            ml/pyproject.toml
+      - name: Install (backend uses the shared feature code from ml/)
+        run: pip install -e ../ml -e ".[dev]"
       - name: Lint
         run: ruff check . && ruff check --config pyproject.toml ../scripts
       - name: Format check

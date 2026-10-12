@@ -14,7 +14,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, str_enum
 from app.models.enums import RiskLevel
@@ -53,6 +53,10 @@ class ModelVersion(Base):
     dataset_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     trained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # True when trained on the bundled synthetic sample: the UI must not present its metrics.
+    is_synthetic_demo: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     registered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -76,9 +80,9 @@ class RiskAssessment(Base):
     transaction_id: Mapped[int] = mapped_column(
         ForeignKey("transactions.id", ondelete="RESTRICT"), nullable=False
     )
-    # NULL means the assessment came from rules only (no model was available).
-    model_version_id: Mapped[int | None] = mapped_column(
-        ForeignKey("model_versions.id", ondelete="RESTRICT"), index=True
+    # Every assessment comes from a registered model; without one, scoring refuses to run.
+    model_version_id: Mapped[int] = mapped_column(
+        ForeignKey("model_versions.id", ondelete="RESTRICT"), nullable=False
     )
     risk_score: Mapped[Decimal] = mapped_column(Numeric(6, 5), nullable=False)
     risk_level: Mapped[RiskLevel] = mapped_column(str_enum(RiskLevel, "risk_level"), nullable=False)
@@ -88,8 +92,15 @@ class RiskAssessment(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    model: Mapped[ModelVersion] = relationship(lazy="joined")
+
+    @property
+    def model_version(self) -> str:
+        return self.model.version
+
     __table_args__ = (
         CheckConstraint("risk_score >= 0 AND risk_score <= 1", name="risk_score_range"),
         Index("ix_risk_assessments_transaction_scored", "transaction_id", text("scored_at DESC")),
         Index("ix_risk_assessments_risk_level", "risk_level"),
+        Index("ix_risk_assessments_model_transaction", "model_version_id", "transaction_id"),
     )

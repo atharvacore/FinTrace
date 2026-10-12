@@ -96,3 +96,36 @@ On PaySim, a TRANSFER or CASH_OUT for exactly the full origin balance is always 
 pre-transaction information, so excluding it would be a judgement about the simulator, not about
 leakage. The deployed model therefore keeps it, and the report shows the `no_origin_balance`
 diagnostic (average precision 0.629) next to it so nobody mistakes 0.9999 for real-world skill.
+
+## ADR-018 No model, no score
+The spec's rule "never pretend to score" is enforced literally: every risk assessment has a
+non-null `model_version_id` (database constraint, migration 0002). Without an active, hash-verified
+model, scoring endpoints return `503 MODEL_NOT_AVAILABLE` with the training and registration
+commands. Rules alone never produce a "risk score", because a rule hit count is not a probability.
+
+## ADR-019 Model registry with copied, hash-checked artifacts
+`POST /models/sync` copies the promoted artifact into `FINTRACE_MODEL_REGISTRY_DIR/<version>` and
+records it in `model_versions`. Activation and every load re-check `model.joblib` against the sha256
+in its metadata, so an edited or swapped file is refused (`409 MODEL_ARTIFACT_MODIFIED`). Older
+versions stay available for rollback with `POST /models/{id}/activate`. `joblib` files are pickles,
+so only artifacts produced by our own pipeline should ever be placed there.
+
+## ADR-020 When an alert is raised
+An alert is created when the model score reaches the operating threshold chosen on validation, or
+when an enabled rule with severity `high` or `critical` fires. Medium rules add reason codes and
+raise the level but do not alert alone. A transaction with an open alert does not get a second one
+when re-scored. Risk level: at or above threshold = high (critical in the upper half of the
+remaining range), at least half the threshold = medium, else low; a rule hit can raise the level to
+its severity.
+
+## ADR-021 `BALANCE_DRAIN` ships as a medium (non-alerting) rule
+First end-to-end run on 200,000 PaySim rows: with `BALANCE_DRAIN` at high severity it raised 32,978
+alerts (16.5% of all transactions), because 43% of legitimate PaySim transfers and cash-outs take the
+whole balance. The model alone raised 137. The rule now ships as medium, so it explains alerts rather
+than creating them. This is the classic rules-versus-model workload trade-off, measured.
+
+## ADR-022 The API imports the shared feature code
+The backend installs `ml/` as a package (`pip install -e ./ml -e ./backend[dev]`) and calls
+`fintrace_ml.features.build_features`. History counts come from the database (strictly earlier
+hours) instead of the CSV. `test_online_scores_match_offline_pipeline` checks that both paths give
+the same score for all 5,000 sample transactions.

@@ -31,7 +31,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = Field(default=60, ge=5, le=24 * 60)
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
+    # Where `python -m fintrace_ml.train --promote` writes the newest artifact.
     model_dir: Path = REPO_ROOT / "ml" / "artifacts" / "current"
+    # Where the API keeps copies of every registered model version (one folder per version).
+    model_registry_dir: Path = REPO_ROOT / "ml" / "artifacts" / "registry"
     # Upload cap for CSV imports through the API. Larger files: use `python -m app.cli import-csv`.
     max_upload_mb: int = Field(default=50, ge=1, le=1024)
 
@@ -42,7 +45,7 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
-    @field_validator("model_dir", mode="after")
+    @field_validator("model_dir", "model_registry_dir", mode="after")
     @classmethod
     def _resolve_model_dir(cls, value: Path) -> Path:
         return value if value.is_absolute() else REPO_ROOT / value

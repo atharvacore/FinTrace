@@ -1,10 +1,13 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Index
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, str_enum
 from app.models.enums import AlertStatus, RiskLevel
+from app.models.scoring import RiskAssessment
+from app.models.transaction import Transaction
+from app.models.user import User
 
 
 class Alert(TimestampMixin, Base):
@@ -28,6 +31,10 @@ class Alert(TimestampMixin, Base):
         ForeignKey("users.id", ondelete="RESTRICT"), index=True
     )
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    transaction: Mapped[Transaction] = relationship(lazy="joined")
+    assessment: Mapped[RiskAssessment] = relationship(lazy="joined")
+    assignee: Mapped[User | None] = relationship(lazy="joined")
 
     __table_args__ = (
         Index("ix_alerts_status_priority", "status", "priority"),

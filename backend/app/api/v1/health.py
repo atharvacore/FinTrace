@@ -4,12 +4,12 @@ from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from fastapi import APIRouter, Response, status
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import __version__
-from app.core.config import get_settings
-from app.db import get_engine
+from app.db import get_engine, get_session_factory
+from app.models import ModelVersion
 from app.schemas.health import ComponentStatus, HealthResponse, ReadinessResponse
 
 router = APIRouter(prefix="/health", tags=["health"])
@@ -47,16 +47,22 @@ def ready(response: Response) -> ReadinessResponse:
         database = ComponentStatus(status="unavailable", detail=type(exc).__name__)
         migrations = ComponentStatus(status="unavailable", detail="Database unreachable")
 
-    # The model is optional for readiness: without it, only rules-based scoring is available.
-    metadata_file = get_settings().model_dir / "metadata.json"
-    if metadata_file.is_file():
-        model = ComponentStatus(status="ok", detail=f"Artifact found at {metadata_file.parent}")
-    else:
-        model = ComponentStatus(
-            status="missing",
-            detail="No model artifact. Train one with the ml pipeline "
-            "(see README, 'Train the model').",
-        )
+    # The model is optional for readiness: the API serves everything except scoring without it.
+    model = ComponentStatus(
+        status="missing",
+        detail="No active model. Train one (README, 'Train the model'), then register it with "
+        "POST /api/v1/models/sync or `python -m app.cli sync-model`.",
+    )
+    if database.status == "ok" and migrations.status == "ok":
+        with get_session_factory()() as db:
+            active = db.scalar(select(ModelVersion).where(ModelVersion.is_active.is_(True)))
+        if active is not None:
+            note = (
+                " (trained on the SYNTHETIC sample: smoke test only)"
+                if active.is_synthetic_demo
+                else ""
+            )
+            model = ComponentStatus(status="ok", detail=f"Active model {active.version}{note}")
 
     is_ready = database.status == "ok" and migrations.status == "ok"
     if not is_ready:

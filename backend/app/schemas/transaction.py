@@ -2,9 +2,15 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from app.models.enums import ImportStatus, TransactionSource, TransactionType
+from app.models.enums import (
+    AlertStatus,
+    ImportStatus,
+    RiskLevel,
+    TransactionSource,
+    TransactionType,
+)
 from app.schemas.common import ORMModel
 
 AccountId = Annotated[str, Field(pattern=r"^[A-Za-z0-9_.-]{1,64}$")]
@@ -69,7 +75,23 @@ class TransactionRead(ORMModel):
     created_at: datetime
 
 
+class TransactionListItem(TransactionRead):
+    risk_score: Decimal | None = Field(description="Latest assessment's score, if scored")
+    risk_level: RiskLevel | None
+    has_open_alert: bool
+
+
+class AlertSummary(ORMModel):
+    id: int
+    status: AlertStatus
+    priority: RiskLevel
+    assignee_id: int | None
+    created_at: datetime
+
+
 class TransactionDetail(TransactionRead):
+    model_config = ConfigDict(from_attributes=True, validate_by_name=True)
+
     synthetic_label_is_fraud: bool | None = Field(
         validation_alias="label_is_fraud",
         description="Ground-truth label from the synthetic dataset. Shown for evaluation; "
