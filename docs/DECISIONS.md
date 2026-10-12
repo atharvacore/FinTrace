@@ -181,3 +181,34 @@ sit near zero). The session token is kept in `sessionStorage`, which ends with t
 `scripts/export_openapi.py` writes the FastAPI OpenAPI schema to `frontend/openapi.json`, and
 `npm run gen:api` turns it into `src/api/schema.d.ts`. CI regenerates both and fails on any
 difference, so the frontend cannot silently drift from the backend's request and response shapes.
+
+## ADR-027 Docker images and the model volume
+The API image installs `ml/` and `backend/` in editable mode under `/app`, so the code finds the
+repository root exactly as it does on a laptop, and runs as an unprivileged user (uid 10001). It
+applies migrations on start. Models are not baked into the image: they live in a named volume
+(`models`), which behaves the same on Windows, macOS and Linux, unlike a bind mount owned by the
+host user. A model trained on the host goes in with `docker compose cp` and `sync-model`. The web
+image is a Node build stage plus nginx, which serves the static app and proxies `/api`, so the
+browser sees one origin. All published ports bind to 127.0.0.1.
+
+## ADR-028 Demo seed
+`python -m app.cli demo-seed` builds a working demo from nothing and is safe to rerun: it only adds
+what is missing (three demo users, the synthetic sample, an active model, scores, one example case).
+With no PaySim model available it trains a model on the synthetic sample and registers it with the
+synthetic flag, so every screen says its scores are not results. The demo password comes from
+`.env` and must be at least 12 characters; nothing in the repository holds a password.
+
+## ADR-029 Visual design
+The dashboard has its own visual language, an investigator's ledger, instead of default component
+styling: dark ink by default with a light paper theme (the choice is stored per browser), a serif
+for headlines (Fraunces), IBM Plex Sans for text and IBM Plex Mono for figures, ruled tables, and
+one heat scale for risk shared by badges, bars and the histogram. Risk badges also carry 1 to 4
+pips so the level does not depend on colour alone. Fonts are bundled through npm (`@fontsource`),
+so the strict content security policy (`default-src 'self'`) still holds and nothing is fetched
+from a third party.
+
+## ADR-030 Security headers on every route
+nginx only inherits server-level `add_header` lines in locations that set none of their own, so the
+content security policy was missing on page routes once those set `Cache-Control`. The headers now
+live in one snippet (`frontend/security-headers.conf`) included at server level and in every
+location that adds headers. The Compose CI job checks the policy is sent on `/`.

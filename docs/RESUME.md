@@ -26,7 +26,7 @@ scikit-learn, React, TypeScript, Docker)
 - Enforced role-based access (analyst, senior analyst, admin) on the server, with Argon2 password
   hashing, JWT auth and audit events written in the same database transaction as each change.
   - *Source:* test_users_rbac.py, test_cases.py, test_audit_and_metrics.py
-- Wrote __TOTAL__ automated tests (__BACKEND__ backend against real PostgreSQL, __ML__ ML, __FRONTEND__ frontend), run in GitHub Actions
+- Wrote 204 automated tests (169 backend against real PostgreSQL, 21 ML, 14 frontend), run in GitHub Actions
   with lint, type checks, OpenAPI drift checks and a Docker Compose job that builds the stack, seeds
   demo data and checks the app through the web proxy.
   - *Source:* .github/workflows/ci.yml

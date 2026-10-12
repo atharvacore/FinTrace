@@ -37,10 +37,10 @@ Open http://localhost:8080.
 | 1 | Sign-in page | "A prototype on synthetic data. Scores are triage signals for a person, not verdicts." |
 | 2 | Sign in as `demo.analyst@example.com`. **Overview** | "The dark panel is the open-alert workload, split by priority. Critical means the model and at least two monitoring rules agree. The histogram is the latest score for every transaction, log scale, with the alert threshold marked." |
 | 3 | **Alert queue**, sorted by priority | "Each alert carries its score, the rules that fired and reason codes. Filters live in the URL, so a view can be shared." |
-| 4 | Open the top alert | "Why it was flagged: the score, the model version that produced it, and each rule hit with the numbers behind it." Click **Assign to me**, then **Start review**. |
+| 4 | Set **Case** to "Not in a case" and open the top alert (the example case already holds two alerts) | "Why it was flagged: the score, the model version that produced it, and each rule hit with the numbers behind it." Click **Assign to me**, then **Start review**. |
 | 5 | **Open a case** from the alert | "Alerts are grouped into cases. Notes are append-only. Every change lands in the timeline and the audit log." Add a short note. |
 | 6 | **Transactions**, filter risk level = critical, open one | "Every assessment is kept, with the model version, so an old decision can be explained later." |
-| 7 | **Model evaluation** | "It leads with the caveats. On PaySim, a transfer of exactly the full balance is always fraud, so the 0.9999 average precision mostly measures that quirk. Without balance features it is 0.629. I report both." |
+| 7 | **Model evaluation** | With the synthetic demo model, point at the "not results" warning and talk about the PaySim report instead. "It leads with the caveats. On PaySim, a transfer of exactly the full balance is always fraud, so the 0.9999 average precision mostly measures that quirk. Without balance features it is 0.629. I report both." |
 | 8 | Sign out, sign in as `demo.senior@example.com`. Open the case | "Only a senior analyst can close a case, and only with a decision and a written rationale." Record a decision. |
 | 9 | **Audit log** | "Who did what and when, written in the same database transaction as the change itself." |
 | 10 | Optional: **Light theme** in the sidebar | The light "paper" theme, remembered per browser. |
