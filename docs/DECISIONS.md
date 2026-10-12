@@ -156,3 +156,22 @@ A full code review before Phase 5 led to these changes (migration `0003`, 12 new
 - **Known limitation, documented rather than changed:** `ORIGIN_VELOCITY` counts transactions in
   strictly earlier hours, the same as the model's history features. A burst within one PaySim hour
   is invisible to it, because PaySim gives no order inside an hour.
+
+## ADR-024 Case workflow rules
+Analysts work their own cases (or take unassigned ones); seniors work and assign any case. Only a
+senior analyst closes a case, and only by recording one of three decisions with a written rationale
+(the database enforces "closed ⇔ decided"). A closed case is final so the decision record cannot
+drift, but it still accepts notes as addenda. Notes are append-only and open to every analyst, so a
+colleague can add context without taking over the case. Decisions do not change the linked alerts'
+statuses: alert triage and case outcomes are separate records, each with its own audit trail.
+
+## ADR-025 Frontend stack
+React 19 + TypeScript + Vite, React Router, TanStack Query and plain CSS. No component library: the
+UI is tables, forms and two small charts, and fewer dependencies keep the build and review simple.
+The chart is a hand-written SVG histogram (log scale by default, because almost all PaySim scores
+sit near zero). The session token is kept in `sessionStorage`, which ends with the tab.
+
+## ADR-026 TypeScript types come from the API schema
+`scripts/export_openapi.py` writes the FastAPI OpenAPI schema to `frontend/openapi.json`, and
+`npm run gen:api` turns it into `src/api/schema.d.ts`. CI regenerates both and fails on any
+difference, so the frontend cannot silently drift from the backend's request and response shapes.

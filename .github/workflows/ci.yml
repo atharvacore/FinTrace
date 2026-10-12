@@ -45,6 +45,10 @@ jobs:
         run: ruff format --check . && ruff format --check --config pyproject.toml ../scripts
       - name: Tests
         run: pytest --cov=app --cov-report=term-missing
+      - name: OpenAPI schema for the frontend is up to date
+        run: |
+          python ../scripts/export_openapi.py
+          git diff --exit-code ../frontend/openapi.json || (echo "Run: python scripts/export_openapi.py && cd frontend && npm run gen:api" && exit 1)
 
   ml:
     name: ML pipeline (lint + tests on the synthetic sample)
@@ -67,3 +71,29 @@ jobs:
         run: pytest
       - name: End-to-end smoke run (synthetic data, not results)
         run: python -m fintrace_ml.train ../data/sample/synthetic_transactions.csv --data-kind synthetic --out /tmp/artifacts
+
+  frontend:
+    name: Frontend (types, lint, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Generated API types match openapi.json
+        run: npm run gen:api && git diff --exit-code src/api/schema.d.ts
+      - name: Type check
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build

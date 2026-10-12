@@ -112,6 +112,7 @@ All foreign keys are real FKs with `ON DELETE RESTRICT` (financial records are n
 | `POST /auth/login` | Email + password → JWT access token | public |
 | `GET /auth/me` | Current user | analyst |
 | `GET /users`, `POST /users`, `PATCH /users/{id}` | Manage users and roles | admin |
+| `GET /users/assignable` | Active users (name, role) for assignment | analyst |
 | `POST /transactions` | Ingest 1–1000 transactions (JSON, idempotent) | senior_analyst |
 | `GET /transactions` | Search: `q`, `type`, `min_amount`, `max_amount`, `account`, `from`, `to`, `risk_level`, `has_open_alert`, `sort`, `page`, `page_size` | analyst |
 | `GET /transactions/{id}` | Detail + assessments + alerts + linked cases | analyst |
