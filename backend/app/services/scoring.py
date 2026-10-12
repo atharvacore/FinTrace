@@ -22,15 +22,34 @@ LEVEL_ORDER = [RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH, RiskLevel.CRITIC
 ALERTING_RULE_SEVERITIES = {RiskLevel.HIGH, RiskLevel.CRITICAL}
 OPEN_ALERT_STATUSES = {AlertStatus.OPEN, AlertStatus.IN_REVIEW, AlertStatus.ESCALATED}
 MAX_BATCH = 5000
+# The model plus at least this many monitoring rules agreeing makes an assessment critical.
+CORROBORATING_RULES_FOR_CRITICAL = 2
 
 
 def model_level(score: float, threshold: float) -> RiskLevel:
-    """Map a model score to a level relative to the operating threshold chosen on validation."""
+    """Map a model score to a level relative to the operating threshold chosen on validation.
+
+    The model alone tops out at HIGH. Its scores above the threshold are often saturated near 1.0
+    (on PaySim every fraud scores 0.997 or more), so splitting that narrow band by score would
+    not separate alerts. Critical needs corroboration from rules: see `risk_level`.
+    """
     if score >= threshold:
-        return RiskLevel.CRITICAL if score >= threshold + (1 - threshold) / 2 else RiskLevel.HIGH
+        return RiskLevel.HIGH
     if score >= threshold / 2:
         return RiskLevel.MEDIUM
     return RiskLevel.LOW
+
+
+def risk_level(score: float, threshold: float, rule_severities: Sequence[RiskLevel]) -> RiskLevel:
+    """Combine the model level with rule hits.
+
+    A rule hit raises the level to its severity. When the model is above its threshold and at
+    least two rules fire as well, independent evidence agrees and the assessment is critical.
+    """
+    level = _max_level([model_level(score, threshold), *rule_severities])
+    if score >= threshold and len(rule_severities) >= CORROBORATING_RULES_FOR_CRITICAL:
+        return RiskLevel.CRITICAL
+    return level
 
 
 def _max_level(levels: Sequence[RiskLevel]) -> RiskLevel:
@@ -140,9 +159,7 @@ def score_transactions(
                 )
 
         above = raw >= model.threshold
-        level = _max_level(
-            [model_level(raw, model.threshold), *(RiskLevel(hit["severity"]) for hit in hits)]
-        )
+        level = risk_level(raw, model.threshold, [RiskLevel(hit["severity"]) for hit in hits])
         reasons = (["MODEL_SCORE_ABOVE_THRESHOLD"] if above else []) + [
             f"RULE_{hit['code']}" for hit in hits
         ]
