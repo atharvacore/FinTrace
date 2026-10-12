@@ -10,7 +10,8 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "test": "vitest run",
-    "gen:api": "openapi-typescript openapi.json -o src/api/schema.d.ts"
+    "gen:api": "openapi-typescript openapi.json -o src/api/schema.d.ts",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "5.3.0",
@@ -35,6 +36,7 @@
     "globals": "17.13.0",
     "jsdom": "27.0.1",
     "openapi-typescript": "7.13.0",
+    "playwright-core": "1.56.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.71.1",
     "vite": "8.3.4",
