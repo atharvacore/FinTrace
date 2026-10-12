@@ -1,6 +1,6 @@
 /*
  * FinTrace visual language: an investigator's ledger.
- * Warm paper, ink-dark navigation, ruled tables, a serif for headlines and a mono for figures.
+ * Ink-dark by default (warm paper as the light alternative), ruled tables, a serif for headlines and a mono for figures.
  * Risk runs on one heat scale (sage -> ochre -> ember -> vermilion) used by badges, bars and the histogram.
  */
 :root {
@@ -41,38 +41,37 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #111215;
-    --grid: rgba(255, 245, 225, 0.03);
-    --surface: #18191d;
-    --surface-2: #22242a;
-    --text: #ece6d9;
-    --muted: #9b958a;
-    --border: #2d2f36;
-    --rule: #3a3c44;
-    --ink: #0a0b0d;
-    --ink-2: #16181c;
-    --accent: #4fb3a7;
-    --accent-text: #0b1312;
-    --signal: #ff7a50;
-    --danger: #ff8270;
-    --warning-bg: #3a2e12;
-    --warning-text: #f2d08a;
-    --low: #8fb787;
-    --medium: #e2b34a;
-    --high: #f08a46;
-    --critical: #ff6550;
-    --fraud: #ff6550;
-    --bar: #565c58;
-    --heat-0: #4c534f;
-    --heat-1: #6e6a4b;
-    --heat-2: #a17a33;
-    --heat-3: #d06a2a;
-    --heat-4: #ff5a43;
-    --shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 10px 28px -18px rgba(0, 0, 0, 0.9);
-    color-scheme: dark;
-  }
+/* Dark ink is the default theme; light paper is the alternative (data-theme="light" on <html>). */
+:root:not([data-theme="light"]) {
+  --paper: #121316;
+  --grid: rgba(255, 245, 225, 0.03);
+  --surface: #1a1b20;
+  --surface-2: #22242a;
+  --text: #ece6d9;
+  --muted: #9b958a;
+  --border: #2d2f36;
+  --rule: #3a3c44;
+  --ink: #0b0c0f;
+  --ink-2: #16181c;
+  --accent: #4fb3a7;
+  --accent-text: #0b1312;
+  --signal: #ff7a50;
+  --danger: #ff8270;
+  --warning-bg: #3a2e12;
+  --warning-text: #f2d08a;
+  --low: #8fb787;
+  --medium: #e2b34a;
+  --high: #f08a46;
+  --critical: #ff6550;
+  --fraud: #ff6550;
+  --bar: #565c58;
+  --heat-0: #4c534f;
+  --heat-1: #6e6a4b;
+  --heat-2: #a17a33;
+  --heat-3: #d06a2a;
+  --heat-4: #ff5a43;
+  --shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 10px 28px -18px rgba(0, 0, 0, 0.9);
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -108,11 +107,12 @@ pre { font-family: var(--font-mono); background: var(--surface-2); padding: 0.75
 .nowrap { white-space: nowrap; }
 
 /* Shell */
-.shell { display: flex; min-height: 100vh; background: linear-gradient(to right, var(--ink) 236px, transparent 236px); }
+.shell { display: flex; min-height: 100vh; background: linear-gradient(to right, var(--ink) 235px, var(--border) 235px 236px, transparent 236px); }
 .sidebar {
   width: 236px; flex-shrink: 0; background: var(--ink); color: var(--ink-text);
   display: flex; flex-direction: column; padding: 1.4rem 0.9rem 1rem; position: sticky; top: 0; height: 100vh;
   background-image: radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--signal) 14%, transparent), transparent 60%);
+  border-right: 1px solid var(--border);
 }
 .brand { display: grid; grid-template-columns: auto 1fr; column-gap: 0.65rem; align-items: center; padding: 0 0.4rem 1.6rem; }
 .brand-mark { width: 34px; height: 34px; grid-row: span 2; display: block; }
@@ -140,6 +140,8 @@ pre { font-family: var(--font-mono); background: var(--surface-2); padding: 0.75
 .sidebar-user .muted { color: var(--ink-muted); }
 .sidebar-user .btn { grid-column: 1 / -1; margin-top: 0.6rem; color: var(--ink-text); border-color: rgba(255, 255, 255, 0.16); }
 .sidebar-user .btn:hover { border-color: var(--signal); }
+.theme-toggle { grid-column: 1 / -1; margin-top: 0.6rem; }
+.sidebar-user .theme-toggle + .btn { margin-top: 0.4rem; }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .banner {
   display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
@@ -389,3 +391,9 @@ tr.highlight td { background: color-mix(in srgb, var(--signal) 8%, transparent);
   .login { grid-template-columns: 1fr; }
   .login-art { padding: 2rem 1.25rem; }
 }
+
+/* On dark ink, the primary button is the light one. */
+:root:not([data-theme="light"]) .btn-primary { background: var(--text); border-color: var(--text); color: var(--paper); }
+:root:not([data-theme="light"]) .btn-primary:hover:not(:disabled) { background: var(--signal); border-color: var(--signal); color: #fff; }
+.login-side { position: relative; }
+.login-side .theme-toggle { position: absolute; top: 1.25rem; right: 1.25rem; }

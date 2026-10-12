@@ -3,6 +3,7 @@ import { useAuth, useUser } from "../auth/AuthContext";
 import { humanize } from "../lib/format";
 import { hasRole } from "../lib/roles";
 import { BrandMark } from "./BrandMark";
+import { ThemeToggle } from "./ThemeToggle";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/);
@@ -45,6 +46,7 @@ export function Layout() {
           </span>
           <div>{user.full_name}</div>
           <div className="muted small">{humanize(user.role)}</div>
+          <ThemeToggle />
           <button type="button" className="btn btn-small btn-ghost" onClick={logout}>
             Sign out
           </button>

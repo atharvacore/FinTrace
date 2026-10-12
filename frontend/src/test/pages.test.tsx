@@ -62,6 +62,17 @@ const alert: Alert = {
 };
 
 describe("login", () => {
+  it("defaults to the dark theme and remembers a switch to light", async () => {
+    mockApi({}, null);
+    renderPage(<App />, { route: "/", signedIn: false });
+    await userEvent.click(await screen.findByRole("button", { name: "Light theme" }));
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(localStorage.getItem("fintrace-theme")).toBe("light");
+    await userEvent.click(screen.getByRole("button", { name: "Dark theme" }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    localStorage.clear();
+  });
+
   it("redirects to login and shows the API's message on bad credentials", async () => {
     mockApi(
       { "POST /auth/login": () => ({ status: 401, body: { error: { code: "UNAUTHORIZED", message: "Invalid email or password", details: [], request_id: "r" } } }) },

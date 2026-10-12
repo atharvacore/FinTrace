@@ -27,8 +27,9 @@ const browser = await chromium.launch(
 );
 const problems = [];
 
-async function signIn(user, options = {}) {
+async function signIn(user, { theme, ...options } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...options });
+  if (theme) await context.addInitScript((t) => localStorage.setItem("fintrace-theme", t), theme);
   const page = await context.newPage();
   page.on("pageerror", (e) => problems.push(`${page.url()}: ${e.message}`));
   page.on("response", (r) => r.url().includes("/api/") && r.status() >= 500 && problems.push(`${r.status()} ${r.url()}`));
@@ -94,9 +95,9 @@ await s.goto(`${base}/audit`);
 await s.locator("tbody tr").first().waitFor();
 await shot(s, "09-audit-log", { full: false });
 
-const dark = await signIn(email, { colorScheme: "dark" });
-await dark.getByRole("img", { name: "Histogram of risk scores" }).waitFor();
-await shot(dark, "10-overview-dark", { full: false });
+const light = await signIn(email, { theme: "light" });
+await light.getByRole("img", { name: "Histogram of risk scores" }).waitFor();
+await shot(light, "10-overview-light", { full: false });
 
 const phone = await signIn(email, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 await phone.getByRole("img", { name: "Histogram of risk scores" }).waitFor();

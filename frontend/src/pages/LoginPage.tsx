@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router";
 import { useAuth } from "../auth/AuthContext";
 import { BrandMark } from "../components/BrandMark";
 import { InlineError } from "../components/States";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 export function LoginPage() {
   const { user, login } = useAuth();
@@ -55,6 +56,7 @@ export function LoginPage() {
         </p>
       </aside>
       <div className="login-side">
+        <ThemeToggle />
         <form className="login-card" onSubmit={submit}>
           <p className="eyebrow">Analyst sign-in</p>
           <h1>Welcome back</h1>
