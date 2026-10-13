@@ -13,12 +13,23 @@ audit trail.
 
 | | |
 |---|---|
-| **Status** | Phases 1–5 complete (foundation, ingestion, ML with measured PaySim results, scoring and alerts, investigations and dashboard). Phase 6 (packaging and demo) next. See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
+| **Status** | All six phases complete: foundation, ingestion, ML with measured PaySim results, scoring and alerts, investigations and dashboard, packaging and demo. See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
 | **Plan** | [docs/PLAN.md](docs/PLAN.md): architecture, schema, API, milestones, risks |
 | **Decisions** | [docs/DECISIONS.md](docs/DECISIONS.md) |
+| **Read next** | [Architecture](docs/ARCHITECTURE.md) · [Model report](docs/MODEL_REPORT.md) · [Known limitations](docs/LIMITATIONS.md) · [Demo script](docs/DEMO.md) |
 | **Stack** | Python 3.12 · FastAPI · SQLAlchemy 2 · Alembic · PostgreSQL 16 · scikit-learn · React + TypeScript + Vite |
 
-## What works today (Phases 1 to 5)
+## Screenshots
+
+| | |
+|---|---|
+| ![Overview](docs/screenshots/02-overview.png) | ![Alert detail](docs/screenshots/04-alert-detail.png) |
+| ![Case](docs/screenshots/05-case.png) | ![Sign in](docs/screenshots/01-login.png) |
+
+More in [docs/screenshots/](docs/screenshots/), taken from 200,000 PaySim transactions scored by
+the PaySim model. Regenerate them with `npm run screenshots` in `frontend` (see the script's header).
+
+## What works today
 
 - FastAPI backend with versioned routes under `/api/v1` and interactive docs at `/docs`.
 - Full database schema (users, imports, transactions, rules, model versions, risk assessments,
@@ -52,12 +63,65 @@ audit trail.
 - An audit-log API for senior analysts, and dashboard metrics computed from the database.
 - A React dashboard: overview, alert queue, cases, transactions, model evaluation (caveats first),
   rules and audit log, with loading, empty and error states and a synthetic-data banner on every page.
-- 200 automated tests (166 backend on real PostgreSQL, 21 ML, 13 frontend), plus ruff, ESLint and
-  TypeScript checks, all run in GitHub Actions.
+  It has its own look (an investigator's ledger: dark ink by default, a light paper theme, serif
+  headlines, monospaced figures, one heat scale for risk) and self-hosted fonts.
+- Alert priority that reflects agreement: **critical** only when the model and at least two
+  monitoring rules agree (ADR-020).
+- One-command local stack: Docker Compose runs PostgreSQL, the API (non-root, migrations on start)
+  and the web app (nginx with security headers), and `demo-seed` loads demo users, data, a model
+  and an example case.
+- 204 automated tests (169 backend on real PostgreSQL, 21 ML, 14 frontend), plus ruff, ESLint and
+  TypeScript checks, all run in GitHub Actions, and a CI job that builds the Compose stack, seeds it
+  and checks it through the web proxy.
 
-## Quick start
+## Quick start with Docker (recommended)
 
-You need **Python 3.12**, **Node.js 22**, **Git**, and either **Docker Desktop** (easiest) or a local
+You need **Git** and **Docker Desktop**.
+
+PowerShell (Windows):
+
+```powershell
+git clone https://github.com/atharvacore/FinTrace.git
+cd FinTrace
+Copy-Item .env.example .env
+python -c "import secrets; print(secrets.token_urlsafe(48))"   # paste into .env as FINTRACE_JWT_SECRET
+```
+
+bash:
+
+```bash
+git clone https://github.com/atharvacore/FinTrace.git && cd FinTrace
+cp .env.example .env
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"  # paste into .env as FINTRACE_JWT_SECRET
+```
+
+In `.env`, also set `POSTGRES_PASSWORD` and `FINTRACE_DEMO_PASSWORD` (12+ characters, local demo
+only). Then, in either shell:
+
+```bash
+docker compose up -d --build --wait
+docker compose exec api python -m app.cli demo-seed
+```
+
+Open http://localhost:8080 and sign in as `demo.analyst@example.com` or `demo.senior@example.com`
+with your `FINTRACE_DEMO_PASSWORD`. [docs/DEMO.md](docs/DEMO.md) is a five-minute walk-through.
+
+Without a PaySim model, `demo-seed` trains a **synthetic smoke-test model** on the bundled sample,
+and the dashboard labels it as such. To show real PaySim scores, train on PaySim first
+(["Train the model"](#train-the-model)), then copy the model into the stack:
+
+```bash
+docker compose cp ml/artifacts/current api:/app/ml/artifacts/
+docker compose exec api python -m app.cli sync-model
+```
+
+If ports 5432, 8000 or 8080 are taken, change `POSTGRES_PORT`, `API_PORT` or `WEB_PORT` in `.env`.
+`docker compose down -v` stops everything and deletes the data.
+
+## Quick start for development
+
+For working on the code you run the API and the dashboard on your machine. You need
+**Python 3.12**, **Node.js 22**, **Git**, and either **Docker Desktop** (for the database) or a local
 **PostgreSQL 16**.
 
 ### 1. Clone and configure
@@ -240,7 +304,8 @@ backend/            FastAPI app, SQLAlchemy models, Alembic migrations, tests
 frontend/           React + TypeScript dashboard (Vite); src/api/schema.d.ts is generated
 ml/                 Offline training pipeline + shared feature code (see ml/README.md)
 data/sample/        Small SYNTHETIC sample (not PaySim); data/raw/ is git-ignored
-docs/               Plan, requirements checklist, decisions, phase reports
+docs/               Plan, checklist, architecture, decisions, model report, limitations, demo,
+                    phase reports, screenshots
 scripts/            Sample-data generator, OpenAPI export, database init
 .github/workflows/  CI
 ```

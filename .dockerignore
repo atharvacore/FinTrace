@@ -1,0 +1,17 @@
+# Build context for backend/Dockerfile (repository root). Keep data, models and secrets out.
+.git
+.env
+.env.*
+.venv
+**/__pycache__
+**/*.egg-info
+**/.pytest_cache
+**/.ruff_cache
+data/raw
+data/processed
+ml/artifacts
+ml/reports
+frontend
+docs
+*.joblib
+*.zip

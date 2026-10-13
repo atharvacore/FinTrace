@@ -194,7 +194,7 @@ export function AlertsPage() {
                     </td>
                     <td className="num">{formatMoney(a.transaction.amount)}</td>
                     <td>
-                      <ReasonCodes codes={a.reason_codes} />
+                      <ReasonCodes codes={a.reason_codes} max={3} />
                     </td>
                     <td>{a.assignee?.full_name ?? <span className="muted">Unassigned</span>}</td>
                     <td>{a.case_id ? <Link to={`/cases/${a.case_id}`}>{a.case_reference}</Link> : <span className="muted">–</span>}</td>

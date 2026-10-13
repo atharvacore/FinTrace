@@ -47,6 +47,33 @@ function Breakdown({ title, counts, linkFor }: { title: string; counts: Record<s
   );
 }
 
+const PRIORITIES = ["critical", "high", "medium", "low"] as const;
+
+/** Open alerts as one segmented strip, worst first, so the mix is visible at a glance. */
+function PriorityStrip({ counts }: { counts: Record<string, number> }) {
+  const total = PRIORITIES.reduce((sum, p) => sum + (counts[p] ?? 0), 0);
+  return (
+    <div>
+      {total > 0 && (
+        <div className="strip" aria-hidden="true">
+          {PRIORITIES.filter((p) => counts[p]).map((p) => (
+            <span key={p} className={`fill-${p}`} style={{ flexGrow: counts[p] }} />
+          ))}
+        </div>
+      )}
+      <ul className="legend" aria-label="Open alerts by priority" style={{ marginTop: "0.8rem" }}>
+        {PRIORITIES.map((p) => (
+          <li key={p}>
+            <span className={`swatch fill-${p}`} aria-hidden="true" />
+            {counts[p] ? <Link to={`/alerts?priority=${p}`}>{humanize(p)}</Link> : humanize(p)}
+            <span className="count">{formatInt(counts[p] ?? 0)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function OverviewPage() {
   const overview = useQuery({ queryKey: ["metrics", "overview"], queryFn: () => api<Overview>("/metrics/overview") });
   const dist = useQuery({
@@ -63,6 +90,7 @@ export function OverviewPage() {
   return (
     <div className="page">
       <header className="page-head">
+        <p className="eyebrow">Investigation desk · {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>
         <h1>Overview</h1>
         <p className="muted">{o.notice}</p>
       </header>
@@ -78,24 +106,37 @@ export function OverviewPage() {
         </Empty>
       )}
 
-      <div className="stats">
-        <Stat label="My open alerts" value={formatInt(o.my_open_alerts)} to="/alerts?assigned_to_me=true" />
-        <Stat label="My open cases" value={formatInt(o.my_open_cases)} to="/cases?assigned_to_me=true" />
-        <Stat
-          label="Open alerts"
-          value={formatInt((o.alerts_by_status.open ?? 0) + (o.alerts_by_status.in_review ?? 0) + (o.alerts_by_status.escalated ?? 0))}
-          to="/alerts"
-        />
-        <Stat label="Transactions" value={formatInt(o.transactions_total)} to="/transactions" hint={`${formatInt(o.transactions_scored)} scored by the active model`} />
-        <Stat
-          label="Alerts per 1,000 scored"
-          value={o.alerts_per_1000_scored === null ? "–" : o.alerts_per_1000_scored.toFixed(2)}
-          hint="Analyst workload"
-        />
-      </div>
+      <section className="hero">
+        <div className="hero-panel">
+          <div>
+            <div className="stat-value">
+              {formatInt((o.alerts_by_status.open ?? 0) + (o.alerts_by_status.in_review ?? 0) + (o.alerts_by_status.escalated ?? 0))}
+            </div>
+            <div className="stat-label">Open alerts</div>
+          </div>
+          <PriorityStrip counts={o.open_alerts_by_priority} />
+          <Link to="/alerts" className="small">
+            Work the alert queue →
+          </Link>
+        </div>
+        <div className="stats">
+          <Stat label="My open alerts" value={formatInt(o.my_open_alerts)} to="/alerts?assigned_to_me=true" />
+          <Stat label="My open cases" value={formatInt(o.my_open_cases)} to="/cases?assigned_to_me=true" />
+          <Stat
+            label="Transactions"
+            value={formatInt(o.transactions_total)}
+            to="/transactions"
+            hint={`${formatInt(o.transactions_scored)} scored by the active model`}
+          />
+          <Stat
+            label="Alerts per 1,000 scored"
+            value={o.alerts_per_1000_scored === null ? "–" : o.alerts_per_1000_scored.toFixed(2)}
+            hint="Analyst workload"
+          />
+        </div>
+      </section>
 
-      <div className="grid-2">
-        <Breakdown title="Open alerts by priority" counts={o.open_alerts_by_priority} linkFor={(p) => `/alerts?priority=${p}`} />
+      <div className="grid-3">
         <Breakdown title="Alerts by status" counts={o.alerts_by_status} linkFor={(s) => `/alerts?status=${s}`} />
         <Breakdown title="Cases by status" counts={o.cases_by_status} linkFor={(s) => `/cases?status=${s}`} />
         <Breakdown title="Case decisions" counts={o.decisions} />

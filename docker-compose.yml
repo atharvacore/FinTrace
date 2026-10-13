@@ -1,5 +1,9 @@
-# Local development stack. Phase 1: database only. API and web services are added in Phase 6.
-# Values come from your .env file (copy .env.example first).
+# Full local stack: PostgreSQL, the API and the web app. Values come from your .env file
+# (copy .env.example first). Everything listens on 127.0.0.1 only.
+#
+#   docker compose up -d --build --wait
+#   docker compose exec api python -m app.cli demo-seed     # needs FINTRACE_DEMO_PASSWORD in .env
+#   open http://localhost:8080
 services:
   db:
     image: postgres:16-alpine
@@ -18,5 +22,36 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      FINTRACE_ENV: ${FINTRACE_ENV:-development}
+      # Inside Compose the database host is "db", not localhost.
+      FINTRACE_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-fintrace}
+      FINTRACE_JWT_SECRET: ${FINTRACE_JWT_SECRET:?set FINTRACE_JWT_SECRET in .env}
+      FINTRACE_ACCESS_TOKEN_MINUTES: ${FINTRACE_ACCESS_TOKEN_MINUTES:-60}
+      FINTRACE_CORS_ORIGINS: http://localhost:8080
+      FINTRACE_DEMO_PASSWORD: ${FINTRACE_DEMO_PASSWORD:-}
+    volumes:
+      # Models live in a named volume (works the same on Windows, macOS and Linux). To use a model
+      # you trained on the host: docker compose cp ml/artifacts/current api:/app/ml/artifacts/
+      - models:/app/ml/artifacts
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+
+  web:
+    build: ./frontend
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+
 volumes:
   pgdata:
+  models:

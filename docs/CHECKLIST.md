@@ -2,7 +2,7 @@
 
 Legend: ✅ verified (test or command actually run) · 🟡 implemented, not yet verified · ⬜ not started · ⛔ blocked
 
-Last updated: 2026-10-12 (end of Phase 5)
+Last updated: 2026-10-12 (end of Phase 6)
 
 ## Product
 | Req | Status | Verified by |
@@ -16,10 +16,10 @@ Last updated: 2026-10-12 (end of Phase 5)
 | Alerts: filter, assign, change status | ✅ | AT-11 `test_alerts.py` (filters, sorting, permissions, transitions, audit) |
 | Cases: link alerts, notes, decisions | ✅ | AT-12 `test_cases.py` (one case per alert, own-case rules, closing needs a senior decision with rationale, closed cases final, append-only notes) |
 | Audit events for sensitive changes | ✅ | AT-13: users, imports, ingestion, rule edits, model registration/activation, scoring, alert and case changes audited (tests in each file); `GET /audit-events` for seniors (`test_audit_and_metrics.py`) |
-| React dashboard (transactions, alerts, cases, metrics) | ✅ | AT-16: `npm run typecheck`, `lint`, `test` (13 tests), `build`; scripted click-through against 200k PaySim rows with no console errors or failed API calls |
+| React dashboard (transactions, alerts, cases, metrics) | ✅ | AT-16: `npm run typecheck`, `lint`, `test` (14 tests), `build`; scripted click-through against 200k PaySim rows (Phase 5) and through the Docker stack (Phase 6), 15 steps each, with no console errors or failed API calls |
 | Reproducible training and evaluation pipeline | ✅ | AT-14 `test_same_seed_gives_identical_metrics`; CI smoke run on synthetic sample |
-| Docker Compose local run | 🟡 | `db` service verified: full test suite passed against it; api/web in Phase 6 |
-| Tests, API docs, screenshots, README | ⬜ | AT-17 |
+| Docker Compose local run | ✅ | AT-17: fresh clone, `docker compose up -d --build --wait`, `demo-seed` twice (second run adds nothing), 15-step click-through via nginx; same steps in the CI `docker` job |
+| Tests, API docs, screenshots, README | ✅ | 204 tests; OpenAPI at `/docs`; 11 screenshots in docs/screenshots (`npm run screenshots`); README Docker quick start |
 
 ## Backend
 | Req | Status | Verified by |
@@ -56,9 +56,9 @@ Last updated: 2026-10-12 (end of Phase 5)
 | Req | Status | Verified by |
 |---|---|---|
 | Plan: architecture, schema, API, milestones, deps, risks | ✅ | docs/PLAN.md |
-| GitHub Actions CI | ✅ | `.github/workflows/ci.yml`: backend, ml and (from Phase 5) frontend jobs; OpenAPI/TypeScript drift checks |
-| README, architecture diagram, model report, demo script | ⬜ | |
-| Known limitations, truthful resume bullets | ⬜ | |
+| GitHub Actions CI | ✅ | `.github/workflows/ci.yml`: backend, ml, frontend and (Phase 6) docker jobs; OpenAPI/TypeScript drift checks |
+| README, architecture diagram, model report, demo script | ✅ | README, docs/ARCHITECTURE.md (Mermaid diagram), docs/MODEL_REPORT.md, docs/DEMO.md (walked through on the Docker stack) |
+| Known limitations, truthful resume bullets | ✅ | docs/LIMITATIONS.md, docs/RESUME.md (each bullet names its source) |
 | No secrets committed (.env ignored, .env.example only) | ✅ | `.gitignore`; app refuses placeholder secret (`test_config.py`) |
 
 ## Phase log
@@ -72,3 +72,4 @@ Last updated: 2026-10-12 (end of Phase 5)
 | 4 Scoring + alerts | 2026-10-12 | 131 backend tests passed; ruff clean; 200,000 PaySim rows imported and scored with the real model |
 | 4 Review fixes | 2026-10-12 | Clean-clone re-check (152 tests, migrations up/down) then code review; fixes in ADR-023 and migration 0003; 143 backend tests passed; ruff clean |
 | 5 Investigations + dashboard | 2026-10-12 | Backend tests on PostgreSQL and 21 ML tests passed; frontend type check, lint, 13 tests and build passed; click-through against 200k PaySim rows clean |
+| 6 Packaging + demo | 2026-10-12 | 169 backend, 21 ML and 14 frontend tests passed; ruff, ESLint, TypeScript clean; Compose stack built from a fresh clone, demo-seed idempotent, 15-step click-through through nginx clean; priority fix (34 critical / 103 high on 200k PaySim rows); dashboard redesign |

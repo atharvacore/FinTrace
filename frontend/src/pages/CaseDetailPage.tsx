@@ -204,7 +204,7 @@ export function CaseDetailPage() {
                     </td>
                     <td className="num">{formatMoney(a.transaction.amount)}</td>
                     <td>
-                      <ReasonCodes codes={a.reason_codes} />
+                      <ReasonCodes codes={a.reason_codes} max={3} />
                     </td>
                     {canWork && (
                       <td>

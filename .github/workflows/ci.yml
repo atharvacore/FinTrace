@@ -97,3 +97,42 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+
+  docker:
+    name: Docker Compose (build, start, demo seed, smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: CI-only configuration (throwaway values, never real secrets)
+        run: |
+          cp .env.example .env
+          sed -i \
+            -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=ci-only-db-password|" \
+            -e "s|^FINTRACE_JWT_SECRET=.*|FINTRACE_JWT_SECRET=$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')|" \
+            -e "s|^FINTRACE_DEMO_PASSWORD=.*|FINTRACE_DEMO_PASSWORD=ci-only-demo-password|" \
+            .env
+      - name: Build and start the stack
+        run: docker compose up -d --build --wait
+      - name: Demo seed (twice, to check it is idempotent)
+        run: |
+          docker compose exec -T api python -m app.cli demo-seed
+          docker compose exec -T api python -m app.cli demo-seed | tee second-run.txt
+          grep -q "created 0 alerts" second-run.txt
+      - name: Smoke test through the web proxy
+        run: |
+          curl -fsS http://localhost:8080/ | grep -q '<div id="root">'
+          curl -fsS http://localhost:8080/cases/1 | grep -q '<div id="root">'
+          curl -fsS -D - -o /dev/null http://localhost:8080/ | grep -qi 'content-security-policy'
+          curl -fsS http://localhost:8080/api/v1/health/ready | tee ready.json
+          token=$(curl -fsS -X POST http://localhost:8080/api/v1/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"demo.analyst@example.com","password":"ci-only-demo-password"}' \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+          curl -fsS -H "Authorization: Bearer $token" http://localhost:8080/api/v1/metrics/overview \
+            | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["transactions_total"]==5000, o; assert o["active_model"]["is_synthetic_demo"], o; print("overview ok:", o["alerts_total"], "alerts")'
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop
+        if: always()
+        run: docker compose down -v
