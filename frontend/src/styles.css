@@ -397,3 +397,21 @@ tr.highlight td { background: color-mix(in srgb, var(--signal) 8%, transparent);
 :root:not([data-theme="light"]) .btn-primary:hover:not(:disabled) { background: var(--signal); border-color: var(--signal); color: #fff; }
 .login-side { position: relative; }
 .login-side .theme-toggle { position: absolute; top: 1.25rem; right: 1.25rem; }
+
+/* Imports and users */
+.status-completed { color: var(--low); }
+.status-completed_with_errors { color: var(--medium); }
+.status-failed { color: var(--critical); }
+.status-active { color: var(--low); }
+.status-inactive { color: var(--muted); border-style: dashed; }
+.stat-compact { min-height: 0; padding: 0.4rem 0; }
+.stat-compact .stat-value { font-size: 2rem; }
+.role-admin { color: var(--signal); }
+.role-senior_analyst { color: var(--accent); }
+.role-analyst { color: var(--muted); }
+.form code { overflow-wrap: anywhere; }
+input[type="file"] { width: 100%; max-width: 100%; font-size: 0.85rem; }
+input[type="file"]::file-selector-button {
+  font: 500 0.82rem/1.4 var(--font-body); margin-right: 0.75rem; padding: 0.3rem 0.75rem; cursor: pointer;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--rule); border-radius: var(--radius);
+}

@@ -36,7 +36,7 @@ do, so nobody mistakes it for more than it is.
   decision.
 - No four-eyes approval beyond "a senior analyst closes cases", no SLA timers, no case
   attachments.
-- No user-management or CSV-upload screens: admins use the CLI or the Swagger UI.
+- Uploads through the dashboard are capped at 50 MB; the full PaySim file goes through the CLI.
 - The audit log is append-only by design in the application, but the database does not stop a
   database administrator from editing it.
 

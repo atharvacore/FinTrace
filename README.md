@@ -67,10 +67,13 @@ the PaySim model. Regenerate them with `npm run screenshots` in `frontend` (see 
   headlines, monospaced figures, one heat scale for risk) and self-hosted fonts.
 - Alert priority that reflects agreement: **critical** only when the model and at least two
   monitoring rules agree (ADR-020).
+- Admin screens: an **Imports** page (upload a CSV, see each import's inserted, duplicate and
+  rejected rows with line-level problems, score new transactions) and a **Users** page for admins
+  (create accounts, change roles, deactivate, reset passwords; admins cannot lock themselves out).
 - One-command local stack: Docker Compose runs PostgreSQL, the API (non-root, migrations on start)
   and the web app (nginx with security headers), and `demo-seed` loads demo users, data, a model
   and an example case.
-- 204 automated tests (169 backend on real PostgreSQL, 21 ML, 14 frontend), plus ruff, ESLint and
+- 209 automated tests (169 backend on real PostgreSQL, 21 ML, 19 frontend), plus ruff, ESLint and
   TypeScript checks, all run in GitHub Actions, and a CI job that builds the Compose stack, seeds it
   and checks it through the web proxy.
 
@@ -219,7 +222,8 @@ python -m app.cli import-csv ../data/sample/synthetic_transactions.csv
 ```
 
 Run it a second time and it reports 5,000 duplicates and inserts nothing. You can also upload a CSV
-through `POST /api/v1/imports` in the Swagger UI (senior analyst or admin, 50 MB limit). For the
+on the dashboard's **Imports** page (senior analyst or admin, 50 MB limit), which lists rejected
+rows by line number and can score the new transactions. For the
 full PaySim file, the command line streams from disk at roughly 5,000 rows per second on a
 4-core machine, so use `--limit 200000` for a quicker demo database.
 

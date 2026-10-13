@@ -30,6 +30,8 @@ export type ModelVersion = S["ModelVersionRead"];
 export type Rule = S["RuleRead"];
 export type ScoreOneResult = S["ScoreOneResult"];
 export type TokenResponse = S["TokenResponse"];
+export type ImportBatch = S["ImportBatchRead"];
+export type ScoreRunResult = S["ScoreRunResult"];
 
 export interface Page<T> {
   items: T[];
