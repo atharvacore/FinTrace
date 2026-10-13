@@ -102,6 +102,7 @@ class AlertRead(ORMModel):
     reason_codes: list[str]
     model_version: str
     case_id: int | None = None
+    case_reference: str | None = None
 
 
 class AlertDetail(AlertRead):

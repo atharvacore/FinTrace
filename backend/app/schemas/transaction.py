@@ -87,6 +87,8 @@ class AlertSummary(ORMModel):
     priority: RiskLevel
     assignee_id: int | None
     created_at: datetime
+    case_id: int | None = None
+    case_reference: str | None = None
 
 
 class TransactionDetail(TransactionRead):

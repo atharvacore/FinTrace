@@ -2,7 +2,7 @@
 
 Legend: ✅ verified (test or command actually run) · 🟡 implemented, not yet verified · ⬜ not started · ⛔ blocked
 
-Last updated: 2026-10-12 (end of Phase 4)
+Last updated: 2026-10-12 (end of Phase 5)
 
 ## Product
 | Req | Status | Verified by |
@@ -14,9 +14,9 @@ Last updated: 2026-10-12 (end of Phase 4)
 | Supervised ML model on labelled synthetic data | ✅ | Trained on full PaySim; docs/MODEL_REPORT.md |
 | Persist risk assessments (version, time, score, reasons) | ✅ | AT-09 `test_assessment_is_persisted_with_version_time_score_and_reasons`; parity `test_online_scores_match_offline_pipeline` |
 | Alerts: filter, assign, change status | ✅ | AT-11 `test_alerts.py` (filters, sorting, permissions, transitions, audit) |
-| Cases: link alerts, notes, decisions | ⬜ | AT-12 |
-| Audit events for sensitive changes | 🟡 | Users, imports, ingestion, rule edits, model registration/activation, scoring, alert changes audited (tests in each file); cases in Phase 5 |
-| React dashboard (transactions, alerts, cases, metrics) | ⬜ | AT-16 |
+| Cases: link alerts, notes, decisions | ✅ | AT-12 `test_cases.py` (one case per alert, own-case rules, closing needs a senior decision with rationale, closed cases final, append-only notes) |
+| Audit events for sensitive changes | ✅ | AT-13: users, imports, ingestion, rule edits, model registration/activation, scoring, alert and case changes audited (tests in each file); `GET /audit-events` for seniors (`test_audit_and_metrics.py`) |
+| React dashboard (transactions, alerts, cases, metrics) | ✅ | AT-16: `npm run typecheck`, `lint`, `test` (13 tests), `build`; scripted click-through against 200k PaySim rows with no console errors or failed API calls |
 | Reproducible training and evaluation pipeline | ✅ | AT-14 `test_same_seed_gives_identical_metrics`; CI smoke run on synthetic sample |
 | Docker Compose local run | 🟡 | `db` service verified: full test suite passed against it; api/web in Phase 6 |
 | Tests, API docs, screenshots, README | ⬜ | AT-17 |
@@ -44,19 +44,19 @@ Last updated: 2026-10-12 (end of Phase 4)
 ## Frontend
 | Req | Status | Verified by |
 |---|---|---|
-| Overview metrics + risk distribution | ⬜ | |
-| Searchable, filterable transactions | ⬜ | |
-| Alert queue (priority, status, score, reasons) | ⬜ | |
-| Transaction detail + investigation history | ⬜ | |
-| Case creation, assignment, notes, status | ⬜ | |
-| Model evaluation + synthetic-data labels | ⬜ | |
-| Loading, empty, validation, error states | ⬜ | AT-16 |
+| Overview metrics + risk distribution | ✅ | `/metrics/overview`, `/metrics/risk-distribution` (counts checked against the DB in `test_audit_and_metrics.py`); Overview page |
+| Searchable, filterable transactions | ✅ | Transactions page (search, type, amount, risk level, open alert, sort; filters kept in the URL) |
+| Alert queue (priority, status, score, reasons) | ✅ | Alert queue page + `pages.test.tsx` (empty state, default statuses, open case from selection) |
+| Transaction detail + investigation history | ✅ | Transaction page: assessments, alerts, linked cases, "score now" for seniors |
+| Case creation, assignment, notes, status | ✅ | Cases + case detail pages (status, priority, assignee, link/unlink alerts, notes, decision, timeline) |
+| Model evaluation + synthetic-data labels | ✅ | Model page (caveats first, validation/test metrics, workload budgets); synthetic-data banner on every page; labels shown as "synthetic label" |
+| Loading, empty, validation, error states | ✅ | AT-16: shared Loading/Empty/ErrorState components (error shows request ID and retry); tested in `pages.test.tsx` |
 
 ## Delivery
 | Req | Status | Verified by |
 |---|---|---|
 | Plan: architecture, schema, API, milestones, deps, risks | ✅ | docs/PLAN.md |
-| GitHub Actions CI | ✅ | `.github/workflows/ci.yml` backend job green on run 38119907866 |
+| GitHub Actions CI | ✅ | `.github/workflows/ci.yml`: backend, ml and (from Phase 5) frontend jobs; OpenAPI/TypeScript drift checks |
 | README, architecture diagram, model report, demo script | ⬜ | |
 | Known limitations, truthful resume bullets | ⬜ | |
 | No secrets committed (.env ignored, .env.example only) | ✅ | `.gitignore`; app refuses placeholder secret (`test_config.py`) |
@@ -71,3 +71,4 @@ Last updated: 2026-10-12 (end of Phase 4)
 | 3 ML pipeline | 2026-10-11 | 21 ML tests passed; ruff clean; PaySim inspected and trained (strict + 2 ablations) |
 | 4 Scoring + alerts | 2026-10-12 | 131 backend tests passed; ruff clean; 200,000 PaySim rows imported and scored with the real model |
 | 4 Review fixes | 2026-10-12 | Clean-clone re-check (152 tests, migrations up/down) then code review; fixes in ADR-023 and migration 0003; 143 backend tests passed; ruff clean |
+| 5 Investigations + dashboard | 2026-10-12 | Backend tests on PostgreSQL and 21 ML tests passed; frontend type check, lint, 13 tests and build passed; click-through against 200k PaySim rows clean |

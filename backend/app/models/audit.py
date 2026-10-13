@@ -2,9 +2,10 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+from app.models.user import User
 
 
 class AuditEvent(Base):
@@ -16,6 +17,7 @@ class AuditEvent(Base):
     actor_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), index=True
     )
+    actor: Mapped[User | None] = relationship(lazy="joined")
     action: Mapped[str] = mapped_column(String(64), nullable=False)
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
     entity_id: Mapped[str] = mapped_column(String(64), nullable=False)

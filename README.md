@@ -13,12 +13,12 @@ audit trail.
 
 | | |
 |---|---|
-| **Status** | Phases 1–4 complete (foundation, ingestion, ML with measured PaySim results, scoring and alerts). Phase 5 (cases + dashboard) next. See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
+| **Status** | Phases 1–5 complete (foundation, ingestion, ML with measured PaySim results, scoring and alerts, investigations and dashboard). Phase 6 (packaging and demo) next. See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
 | **Plan** | [docs/PLAN.md](docs/PLAN.md): architecture, schema, API, milestones, risks |
 | **Decisions** | [docs/DECISIONS.md](docs/DECISIONS.md) |
 | **Stack** | Python 3.12 · FastAPI · SQLAlchemy 2 · Alembic · PostgreSQL 16 · scikit-learn · React + TypeScript + Vite |
 
-## What works today (Phases 1 to 4)
+## What works today (Phases 1 to 5)
 
 - FastAPI backend with versioned routes under `/api/v1` and interactive docs at `/docs`.
 - Full database schema (users, imports, transactions, rules, model versions, risk assessments,
@@ -46,14 +46,18 @@ audit trail.
   returns `503 MODEL_NOT_AVAILABLE` with the commands to fix it, instead of inventing a score.
 - An alert queue with filters, sorting, assignment and a status workflow enforced on the server
   (analysts work their own alerts; senior analysts assign, close escalations and reopen).
-- 164 automated tests (143 backend on real PostgreSQL, 21 ML), plus ruff linting, all run in
-  GitHub Actions.
-
-Cases, notes, decisions, metrics and the React dashboard arrive in Phase 5.
+- Investigation cases: open a case from alerts, assign it, move it through its statuses, add
+  append-only notes, and have a senior analyst close it with a decision and written rationale.
+  Every change appears in the case timeline and the audit log.
+- An audit-log API for senior analysts, and dashboard metrics computed from the database.
+- A React dashboard: overview, alert queue, cases, transactions, model evaluation (caveats first),
+  rules and audit log, with loading, empty and error states and a synthetic-data banner on every page.
+- 200 automated tests (166 backend on real PostgreSQL, 21 ML, 13 frontend), plus ruff, ESLint and
+  TypeScript checks, all run in GitHub Actions.
 
 ## Quick start
 
-You need **Python 3.12**, **Git**, and either **Docker Desktop** (easiest) or a local
+You need **Python 3.12**, **Node.js 22**, **Git**, and either **Docker Desktop** (easiest) or a local
 **PostgreSQL 16**.
 
 ### 1. Clone and configure
@@ -174,7 +178,21 @@ Or, in the Swagger UI: `POST /api/v1/models/sync` (admin), then `POST /api/v1/sc
 (senior analyst). Alerts appear at `GET /api/v1/alerts`; rules can be tuned with
 `PATCH /api/v1/rules/{id}` (admin).
 
-### 8. Run the tests and linters
+### 8. Run the dashboard
+
+In a second terminal (PowerShell or bash), with the API from step 5 still running:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open http://localhost:5173 and sign in. The dev server forwards `/api` to the API on port 8000.
+Create an analyst and a senior analyst with `create-user` (step 4) to try the full workflow: an
+analyst works alerts and cases, and a senior analyst records case decisions and sees the audit log.
+
+### 9. Run the tests and linters
 
 The tests need the `fintrace_test` database. They **drop and recreate** its schema, so never
 point them at a database you care about.
@@ -197,25 +215,35 @@ export FINTRACE_TEST_DATABASE_URL="postgresql+psycopg://fintrace:YOUR_PASSWORD@l
 pytest && ruff check . && ruff format --check .
 ```
 
+Frontend (any shell, from `frontend`):
+
+```bash
+npm run typecheck && npm run lint && npm test && npm run build
+```
+
+After changing API request or response models, regenerate the frontend types:
+`python scripts/export_openapi.py` (from the repo root), then `npm run gen:api` in `frontend`.
+CI fails if they are out of date.
+
 ## Repository layout
 
 ```
 backend/            FastAPI app, SQLAlchemy models, Alembic migrations, tests
-  app/api/v1/       Route handlers (health, auth, users, transactions, imports, scoring, alerts, rules, models)
+  app/api/v1/       Route handlers (health, auth, users, transactions, imports, scoring, alerts,
+                    rules, models, cases, audit-events, metrics)
   app/core/         Settings, security, errors, middleware
   app/models/       Database tables
   app/schemas/      Request and response models (Pydantic)
-  app/services/     Business logic (audit trail; more per phase)
+  app/services/     Business logic (ingestion, scoring, rules, alerts, cases, model registry, audit)
   alembic/          Database migrations
   tests/            pytest suite (runs against real PostgreSQL)
+frontend/           React + TypeScript dashboard (Vite); src/api/schema.d.ts is generated
 ml/                 Offline training pipeline + shared feature code (see ml/README.md)
 data/sample/        Small SYNTHETIC sample (not PaySim); data/raw/ is git-ignored
 docs/               Plan, requirements checklist, decisions, phase reports
-scripts/            Sample-data generator, database init
+scripts/            Sample-data generator, OpenAPI export, database init
 .github/workflows/  CI
 ```
-
-`frontend/` (React dashboard) is added in Phase 5.
 
 ## Data
 
