@@ -6,6 +6,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -72,8 +73,8 @@ class Transaction(Base):
         str_enum(TransactionType, "transaction_type"), nullable=False, index=True
     )
     amount: Mapped[Decimal] = mapped_column(Money, nullable=False)
-    origin_account: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    dest_account: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    origin_account: Mapped[str] = mapped_column(String(64), nullable=False)
+    dest_account: Mapped[str] = mapped_column(String(64), nullable=False)
     origin_balance_before: Mapped[Decimal] = mapped_column(Money, nullable=False)
     origin_balance_after: Mapped[Decimal] = mapped_column(Money, nullable=False)
     dest_balance_before: Mapped[Decimal] = mapped_column(Money, nullable=False)
@@ -85,8 +86,11 @@ class Transaction(Base):
     )
 
     __table_args__ = (
+        # History lookups for scoring: "earlier transactions from/to this account".
+        Index("ix_transactions_origin_step", "origin_account", "step"),
+        Index("ix_transactions_dest_step", "dest_account", "step"),
         CheckConstraint("amount > 0", name="amount_positive"),
-        CheckConstraint("step >= 0", name="step_non_negative"),
+        CheckConstraint("step >= 1", name="step_positive"),
         CheckConstraint(
             "origin_balance_before >= 0 AND origin_balance_after >= 0 "
             "AND dest_balance_before >= 0 AND dest_balance_after >= 0",

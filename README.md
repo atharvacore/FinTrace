@@ -13,12 +13,12 @@ audit trail.
 
 | | |
 |---|---|
-| **Status** | Phases 1–3 complete, including measured PaySim results ([docs/MODEL_REPORT.md](docs/MODEL_REPORT.md)). Phase 4 next. See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
+| **Status** | Phases 1–4 complete (foundation, ingestion, ML with measured PaySim results, scoring and alerts). Phase 5 (cases + dashboard) next. See [docs/CHECKLIST.md](docs/CHECKLIST.md). |
 | **Plan** | [docs/PLAN.md](docs/PLAN.md): architecture, schema, API, milestones, risks |
 | **Decisions** | [docs/DECISIONS.md](docs/DECISIONS.md) |
 | **Stack** | Python 3.12 · FastAPI · SQLAlchemy 2 · Alembic · PostgreSQL 16 · scikit-learn · React + TypeScript + Vite |
 
-## What works today (Phases 1 to 3)
+## What works today (Phases 1 to 4)
 
 - FastAPI backend with versioned routes under `/api/v1` and interactive docs at `/docs`.
 - Full database schema (users, imports, transactions, rules, model versions, risk assessments,
@@ -39,10 +39,17 @@ audit trail.
   test metrics focused on analyst workload, and a versioned model artifact.
 - Measured results on the full PaySim dataset, with an honest explanation of why they are so high
   (a simulator signature) and a diagnostic run without it: [docs/MODEL_REPORT.md](docs/MODEL_REPORT.md).
-- 104 automated tests (83 backend on real PostgreSQL, 21 ML), plus ruff linting, all run in
+- Online scoring with the trained model plus four configurable monitoring rules. Each risk
+  assessment stores the model version, time, score, level, reason codes and rule hits. A test
+  proves the API's scores equal the training pipeline's on 5,000 transactions.
+- A model registry: register, verify (sha256) and switch model versions. With no model, scoring
+  returns `503 MODEL_NOT_AVAILABLE` with the commands to fix it, instead of inventing a score.
+- An alert queue with filters, sorting, assignment and a status workflow enforced on the server
+  (analysts work their own alerts; senior analysts assign, close escalations and reopen).
+- 164 automated tests (143 backend on real PostgreSQL, 21 ML), plus ruff linting, all run in
   GitHub Actions.
 
-Scoring, alerts, cases and the React dashboard arrive in Phases 4 and 5.
+Cases, notes, decisions, metrics and the React dashboard arrive in Phase 5.
 
 ## Quick start
 
@@ -89,7 +96,7 @@ PowerShell:
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -e ".\backend[dev]"
+pip install -e .\ml -e ".\backend[dev]"
 ```
 
 bash:
@@ -97,7 +104,7 @@ bash:
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -e "./backend[dev]"
+pip install -e ./ml -e "./backend[dev]"
 ```
 
 ### 4. Apply migrations and create your first admin
@@ -154,7 +161,20 @@ To regenerate the sample (or make a bigger one for experiments):
 python ../scripts/generate_sample_data.py --rows 5000 --seed 42 --out ../data/sample/synthetic_transactions.csv
 ```
 
-### 7. Run the tests and linters
+### 7. Register a model and score
+
+After training (see "Train the model" below), from the `backend` folder:
+
+```bash
+python -m app.cli sync-model            # verify, register and activate ml/artifacts/current
+python -m app.cli score --limit 200000  # score transactions the active model has not seen
+```
+
+Or, in the Swagger UI: `POST /api/v1/models/sync` (admin), then `POST /api/v1/scoring/run`
+(senior analyst). Alerts appear at `GET /api/v1/alerts`; rules can be tuned with
+`PATCH /api/v1/rules/{id}` (admin).
+
+### 8. Run the tests and linters
 
 The tests need the `fintrace_test` database. They **drop and recreate** its schema, so never
 point them at a database you care about.
@@ -181,7 +201,7 @@ pytest && ruff check . && ruff format --check .
 
 ```
 backend/            FastAPI app, SQLAlchemy models, Alembic migrations, tests
-  app/api/v1/       Route handlers (health, auth, users, transactions, imports)
+  app/api/v1/       Route handlers (health, auth, users, transactions, imports, scoring, alerts, rules, models)
   app/core/         Settings, security, errors, middleware
   app/models/       Database tables
   app/schemas/      Request and response models (Pydantic)

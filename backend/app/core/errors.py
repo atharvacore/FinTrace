@@ -101,4 +101,6 @@ def register_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=_body(request, "INTERNAL_ERROR", "An unexpected error occurred", []),
+            # This handler runs outside RequestIdMiddleware, so set the header here too.
+            headers={"X-Request-ID": getattr(request.state, "request_id", "")},
         )

@@ -155,3 +155,15 @@ def test_bundled_synthetic_sample_imports_cleanly(client, senior):
     body = upload(client, senior, SAMPLE.read_bytes(), SAMPLE.name).json()
     assert body["status"] == "completed"
     assert body["rows_total"] == body["rows_inserted"] == 5000
+
+
+def test_oversized_upload_is_refused_before_the_body_is_read(client, monkeypatch):
+    """No auth header: the size check must still answer 413, not read the body and then 401."""
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "max_upload_mb", 1)
+    big = csv_bytes(*([GOOD_ROWS[0]] * 20_000))
+    resp = upload(client, {}, big)
+    assert resp.status_code == 413
+    assert resp.json()["error"]["code"] == "FILE_TOO_LARGE"
+    assert resp.headers["X-Request-ID"] == resp.json()["error"]["request_id"]

@@ -1,23 +1,27 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, exists, func, or_, select
 
 from app.api.deps import AnalystUser, DbSession, SeniorUser
 from app.core.errors import AppError, not_found
-from app.models import Transaction
-from app.models.enums import TransactionSource, TransactionType
+from app.models import Alert, RiskAssessment, Transaction
+from app.models.enums import RiskLevel, TransactionSource, TransactionType
 from app.schemas.common import ErrorResponse, Page, PageParams
+from app.schemas.scoring import RiskAssessmentRead, TransactionWithHistory
 from app.schemas.transaction import (
+    AlertSummary,
     IngestItemResult,
     IngestResult,
     TransactionBatchIn,
     TransactionDetail,
+    TransactionListItem,
     TransactionRead,
 )
+from app.services.alerts import CLOSED
 from app.services.audit import record_audit
 from app.services.ingestion import ingest_api_transactions
 
@@ -35,12 +39,32 @@ class TransactionSort(StrEnum):
     AMOUNT_ASC = "amount"
 
 
+def _latest(column):
+    return (
+        select(column)
+        .where(RiskAssessment.transaction_id == Transaction.id)
+        .order_by(RiskAssessment.scored_at.desc(), RiskAssessment.id.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+
+
+LATEST_SCORE = _latest(RiskAssessment.risk_score)
+LATEST_LEVEL = _latest(RiskAssessment.risk_level)
+HAS_OPEN_ALERT = exists().where(Alert.transaction_id == Transaction.id, Alert.status.not_in(CLOSED))
+
 _ORDER = {
     TransactionSort.NEWEST: (Transaction.occurred_at.desc(), Transaction.id.desc()),
     TransactionSort.OLDEST: (Transaction.occurred_at.asc(), Transaction.id.asc()),
     TransactionSort.AMOUNT_DESC: (Transaction.amount.desc(), Transaction.id.desc()),
     TransactionSort.AMOUNT_ASC: (Transaction.amount.asc(), Transaction.id.asc()),
 }
+
+
+def _as_utc(value: datetime | None) -> datetime | None:
+    if value is None or value.tzinfo is not None:
+        return value
+    return value.replace(tzinfo=UTC)
 
 
 class TransactionFilters:
@@ -62,10 +86,17 @@ class TransactionFilters:
         occurred_to: Annotated[datetime | None, Query(alias="to")] = None,
         source: TransactionSource | None = None,
         import_batch_id: int | None = None,
+        risk_level: Annotated[
+            list[RiskLevel] | None, Query(description="Level of the latest assessment")
+        ] = None,
+        has_open_alert: bool | None = None,
         sort: TransactionSort = TransactionSort.NEWEST,
     ) -> None:
         if min_amount is not None and max_amount is not None and min_amount > max_amount:
             raise AppError(422, "VALIDATION_ERROR", "min_amount must not exceed max_amount")
+        # Times without a timezone are read as UTC (comparing naive with aware would fail).
+        occurred_from = _as_utc(occurred_from)
+        occurred_to = _as_utc(occurred_to)
         if occurred_from and occurred_to and occurred_from > occurred_to:
             raise AppError(422, "VALIDATION_ERROR", "'from' must not be after 'to'")
         self.q = q.strip() if q else None
@@ -77,6 +108,8 @@ class TransactionFilters:
         self.occurred_to = occurred_to
         self.source = source
         self.import_batch_id = import_batch_id
+        self.risk_level = risk_level
+        self.has_open_alert = has_open_alert
         self.sort = sort
 
     def apply(self, stmt: Select) -> Select:
@@ -110,6 +143,10 @@ class TransactionFilters:
             stmt = stmt.where(Transaction.source == self.source)
         if self.import_batch_id is not None:
             stmt = stmt.where(Transaction.import_batch_id == self.import_batch_id)
+        if self.risk_level:
+            stmt = stmt.where(LATEST_LEVEL.in_(self.risk_level))
+        if self.has_open_alert is not None:
+            stmt = stmt.where(HAS_OPEN_ALERT if self.has_open_alert else ~HAS_OPEN_ALERT)
         return stmt
 
 
@@ -153,20 +190,31 @@ def ingest_transactions(
     )
 
 
-@router.get("", response_model=Page[TransactionRead], summary="Search transactions")
+@router.get("", response_model=Page[TransactionListItem], summary="Search transactions")
 def list_transactions(
     _: AnalystUser,
     db: DbSession,
     filters: Annotated[TransactionFilters, Depends()],
     params: Annotated[PageParams, Depends()],
-) -> Page[TransactionRead]:
-    base = filters.apply(select(Transaction))
-    total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
-    rows = db.scalars(
-        base.order_by(*_ORDER[filters.sort]).offset(params.offset).limit(params.page_size)
+) -> Page[TransactionListItem]:
+    count_query = filters.apply(select(Transaction.id)).subquery()
+    total = db.scalar(select(func.count()).select_from(count_query)) or 0
+    rows = db.execute(
+        filters.apply(select(Transaction, LATEST_SCORE, LATEST_LEVEL, HAS_OPEN_ALERT))
+        .order_by(*_ORDER[filters.sort])
+        .offset(params.offset)
+        .limit(params.page_size)
     ).all()
-    return Page[TransactionRead](
-        items=[TransactionRead.model_validate(r) for r in rows],
+    return Page[TransactionListItem](
+        items=[
+            TransactionListItem(
+                **TransactionRead.model_validate(tx).model_dump(),
+                risk_score=score,
+                risk_level=level,
+                has_open_alert=has_alert,
+            )
+            for tx, score, level, has_alert in rows
+        ],
         page=params.page,
         page_size=params.page_size,
         total=total,
@@ -175,12 +223,24 @@ def list_transactions(
 
 @router.get(
     "/{transaction_id}",
-    response_model=TransactionDetail,
-    summary="One transaction",
+    response_model=TransactionWithHistory,
+    summary="One transaction with its assessments and alerts",
     responses={404: {"model": ErrorResponse}},
 )
-def get_transaction(transaction_id: int, _: AnalystUser, db: DbSession) -> TransactionDetail:
+def get_transaction(transaction_id: int, _: AnalystUser, db: DbSession) -> TransactionWithHistory:
     tx = db.get(Transaction, transaction_id)
     if tx is None:
         raise not_found("Transaction", transaction_id)
-    return TransactionDetail.model_validate(tx)
+    assessments = db.scalars(
+        select(RiskAssessment)
+        .where(RiskAssessment.transaction_id == tx.id)
+        .order_by(RiskAssessment.scored_at.desc(), RiskAssessment.id.desc())
+    ).all()
+    alerts = db.scalars(
+        select(Alert).where(Alert.transaction_id == tx.id).order_by(Alert.created_at.desc())
+    ).unique()
+    return TransactionWithHistory(
+        **TransactionDetail.model_validate(tx).model_dump(),
+        assessments=[RiskAssessmentRead.model_validate(a) for a in assessments],
+        alerts=[AlertSummary.model_validate(a) for a in alerts],
+    )
