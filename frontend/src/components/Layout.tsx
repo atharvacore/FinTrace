@@ -18,9 +18,11 @@ export function Layout() {
     { to: "/alerts", label: "Alert queue" },
     { to: "/cases", label: "Cases" },
     { to: "/transactions", label: "Transactions" },
+    { to: "/imports", label: "Imports" },
     { to: "/model", label: "Model evaluation" },
     { to: "/rules", label: "Rules" },
     ...(hasRole(user, "senior_analyst") ? [{ to: "/audit", label: "Audit log" }] : []),
+    ...(hasRole(user, "admin") ? [{ to: "/users", label: "Users" }] : []),
   ];
   return (
     <div className="shell">

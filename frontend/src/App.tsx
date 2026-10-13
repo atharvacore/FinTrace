@@ -8,12 +8,14 @@ import { AlertsPage } from "./pages/AlertsPage";
 import { AuditPage } from "./pages/AuditPage";
 import { CaseDetailPage } from "./pages/CaseDetailPage";
 import { CasesPage } from "./pages/CasesPage";
+import { ImportsPage } from "./pages/ImportsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ModelPage } from "./pages/ModelPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { RulesPage } from "./pages/RulesPage";
 import { TransactionDetailPage } from "./pages/TransactionDetailPage";
 import { TransactionsPage } from "./pages/TransactionsPage";
+import { UsersPage } from "./pages/UsersPage";
 
 function RequireLogin() {
   const { user, loading } = useAuth();
@@ -26,6 +28,11 @@ function RequireLogin() {
 function SeniorOnly() {
   const { user } = useAuth();
   return hasRole(user, "senior_analyst") ? <Outlet /> : <Empty title="Senior analysts only" />;
+}
+
+function AdminOnly() {
+  const { user } = useAuth();
+  return hasRole(user, "admin") ? <Outlet /> : <Empty title="Admins only" />;
 }
 
 export function App() {
@@ -42,9 +49,13 @@ export function App() {
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="transactions/:transactionId" element={<TransactionDetailPage />} />
           <Route path="model" element={<ModelPage />} />
+          <Route path="imports" element={<ImportsPage />} />
           <Route path="rules" element={<RulesPage />} />
           <Route element={<SeniorOnly />}>
             <Route path="audit" element={<AuditPage />} />
+          </Route>
+          <Route element={<AdminOnly />}>
+            <Route path="users" element={<UsersPage />} />
           </Route>
           <Route path="*" element={<Empty title="Page not found" />} />
         </Route>

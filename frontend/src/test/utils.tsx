@@ -26,7 +26,8 @@ export function mockApi(routes: Record<string, Handler | object>, user: User | n
     const url = new URL(String(input), "http://localhost");
     const path = url.pathname.replace("/api/v1", "");
     const method = init.method ?? "GET";
-    calls.push({ method, path, body: init.body ? JSON.parse(String(init.body)) : undefined });
+    const body = init.body instanceof FormData ? Object.fromEntries(init.body.entries()) : init.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({ method, path, body });
     let result: { status?: number; body?: unknown };
     if (path === "/auth/me" && user) result = { body: user };
     else {

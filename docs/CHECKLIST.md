@@ -2,7 +2,7 @@
 
 Legend: ✅ verified (test or command actually run) · 🟡 implemented, not yet verified · ⬜ not started · ⛔ blocked
 
-Last updated: 2026-10-12 (end of Phase 6)
+Last updated: 2026-10-13 (admin screens after Phase 6)
 
 ## Product
 | Req | Status | Verified by |
@@ -19,7 +19,7 @@ Last updated: 2026-10-12 (end of Phase 6)
 | React dashboard (transactions, alerts, cases, metrics) | ✅ | AT-16: `npm run typecheck`, `lint`, `test` (14 tests), `build`; scripted click-through against 200k PaySim rows (Phase 5) and through the Docker stack (Phase 6), 15 steps each, with no console errors or failed API calls |
 | Reproducible training and evaluation pipeline | ✅ | AT-14 `test_same_seed_gives_identical_metrics`; CI smoke run on synthetic sample |
 | Docker Compose local run | ✅ | AT-17: fresh clone, `docker compose up -d --build --wait`, `demo-seed` twice (second run adds nothing), 15-step click-through via nginx; same steps in the CI `docker` job |
-| Tests, API docs, screenshots, README | ✅ | 204 tests; OpenAPI at `/docs`; 11 screenshots in docs/screenshots (`npm run screenshots`); README Docker quick start |
+| Tests, API docs, screenshots, README | ✅ | 209 tests; OpenAPI at `/docs`; 13 screenshots in docs/screenshots (`npm run screenshots`); README Docker quick start |
 
 ## Backend
 | Req | Status | Verified by |
@@ -73,3 +73,4 @@ Last updated: 2026-10-12 (end of Phase 6)
 | 4 Review fixes | 2026-10-12 | Clean-clone re-check (152 tests, migrations up/down) then code review; fixes in ADR-023 and migration 0003; 143 backend tests passed; ruff clean |
 | 5 Investigations + dashboard | 2026-10-12 | Backend tests on PostgreSQL and 21 ML tests passed; frontend type check, lint, 13 tests and build passed; click-through against 200k PaySim rows clean |
 | 6 Packaging + demo | 2026-10-12 | 169 backend, 21 ML and 14 frontend tests passed; ruff, ESLint, TypeScript clean; Compose stack built from a fresh clone, demo-seed idempotent, 15-step click-through through nginx clean; priority fix (34 critical / 103 high on 200k PaySim rows); dashboard redesign |
+| Extra: admin screens | 2026-10-13 | Imports and Users pages; 19 frontend tests passed; type check, lint and build clean; click-through on the 200k-row database (upload with a bad row, re-upload inserts nothing, score, create user, change role, deactivate, reset password, audit entries) with no console errors |

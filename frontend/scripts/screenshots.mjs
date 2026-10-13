@@ -4,6 +4,8 @@
 //   FINTRACE_SHOT_EMAIL        default demo.analyst@example.com
 //   FINTRACE_SHOT_PASSWORD     default $FINTRACE_DEMO_PASSWORD
 //   FINTRACE_SHOT_SENIOR_EMAIL default demo.senior@example.com (for the audit log; same password)
+//   FINTRACE_SHOT_ADMIN_EMAIL  default demo.admin@example.com (for the users page; FINTRACE_SHOT_ADMIN_PASSWORD
+//                              if its password differs)
 //   CHROMIUM_PATH              a Chromium/Chrome binary; otherwise the installed Chrome (or set PW_CHANNEL=msedge)
 //   output: ../docs/screenshots (override with FINTRACE_SHOT_DIR)
 import { mkdir } from "node:fs/promises";
@@ -14,7 +16,9 @@ import { chromium } from "playwright-core";
 const base = (process.env.FINTRACE_URL ?? "http://localhost:8080").replace(/\/$/, "");
 const email = process.env.FINTRACE_SHOT_EMAIL ?? "demo.analyst@example.com";
 const seniorEmail = process.env.FINTRACE_SHOT_SENIOR_EMAIL ?? "demo.senior@example.com";
+const adminEmail = process.env.FINTRACE_SHOT_ADMIN_EMAIL ?? "demo.admin@example.com";
 const password = process.env.FINTRACE_SHOT_PASSWORD ?? process.env.FINTRACE_DEMO_PASSWORD;
+const adminPassword = process.env.FINTRACE_SHOT_ADMIN_PASSWORD ?? password;
 const out = resolve(process.env.FINTRACE_SHOT_DIR ?? resolve(dirname(fileURLToPath(import.meta.url)), "../../docs/screenshots"));
 if (!password) {
   console.error("Set FINTRACE_SHOT_PASSWORD (or FINTRACE_DEMO_PASSWORD) to the demo users' password.");
@@ -27,7 +31,7 @@ const browser = await chromium.launch(
 );
 const problems = [];
 
-async function signIn(user, { theme, ...options } = {}) {
+async function signIn(user, { theme, secret = password, ...options } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...options });
   if (theme) await context.addInitScript((t) => localStorage.setItem("fintrace-theme", t), theme);
   const page = await context.newPage();
@@ -35,7 +39,7 @@ async function signIn(user, { theme, ...options } = {}) {
   page.on("response", (r) => r.url().includes("/api/") && r.status() >= 500 && problems.push(`${r.status()} ${r.url()}`));
   await page.goto(`${base}/`);
   await page.getByLabel("Email").fill(user);
-  await page.getByLabel("Password").fill(password);
+  await page.getByLabel("Password").fill(secret);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByRole("heading", { name: "Overview" }).waitFor();
   return page;
@@ -94,6 +98,15 @@ const s = await signIn(seniorEmail);
 await s.goto(`${base}/audit`);
 await s.locator("tbody tr").first().waitFor();
 await shot(s, "09-audit-log", { full: false });
+
+await s.goto(`${base}/imports`);
+await s.locator("tbody tr").first().waitFor();
+await shot(s, "12-imports", { full: false });
+
+const admin = await signIn(adminEmail, { secret: adminPassword });
+await admin.goto(`${base}/users`);
+await admin.locator("tbody tr").first().waitFor();
+await shot(admin, "13-users", { full: false });
 
 const light = await signIn(email, { theme: "light" });
 await light.getByRole("img", { name: "Histogram of risk scores" }).waitFor();
